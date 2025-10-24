@@ -1,0 +1,70 @@
+name: 'Rust Bundler'
+description: 'Bundle Rust binaries for distribution on macOS, Windows and Linux'
+author: 'julcst'
+branding:
+  icon: 'package'
+  color: 'orange'
+
+inputs:
+  binary-name:
+    description: 'Name of the binary to bundle (without extension)'
+    required: true
+  include-files:
+    description: 'Space-separated list of files or folders to include in the bundle'
+    required: false
+    default: ''
+  output-name:
+    description: 'Name of the output bundle (without extension, platform suffix will be added)'
+    required: false
+    default: ''
+  working-directory:
+    description: 'Directory containing the binary to bundle'
+    required: false
+    default: './target/release'
+  macos-sign:
+    description: 'Enable macOS code signing (requires proper keychain setup)'
+    required: false
+    default: 'false'
+  macos-sign-identity:
+    description: 'macOS code signing identity'
+    required: false
+    default: ''
+  macos-bundle-id:
+    description: 'macOS bundle identifier (e.g., com.example.app)'
+    required: false
+    default: ''
+  macos-app-name:
+    description: 'macOS application display name'
+    required: false
+    default: ''
+
+outputs:
+  bundle-path:
+    description: 'Path to the created bundle'
+    value: ${{ steps.bundle.outputs.bundle-path }}
+  bundle-name:
+    description: 'Name of the created bundle file'
+    value: ${{ steps.bundle.outputs.bundle-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Bundle Application
+      id: bundle
+      shell: bash
+      run: |
+        set -e
+        
+        # Source the bundler script
+        source "${{ github.action_path }}/scripts/bundle.sh"
+        
+        # Call the bundler function
+        bundle_application \
+          "${{ inputs.binary-name }}" \
+          "${{ inputs.include-files }}" \
+          "${{ inputs.output-name }}" \
+          "${{ inputs.working-directory }}" \
+          "${{ inputs.macos-sign }}" \
+          "${{ inputs.macos-sign-identity }}" \
+          "${{ inputs.macos-bundle-id }}" \
+          "${{ inputs.macos-app-name }}"

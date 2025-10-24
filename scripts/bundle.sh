@@ -132,12 +132,13 @@ bundle_windows() {
     fi
     
     # Create zip (using PowerShell on Windows or zip command on Unix)
+    local output_path="$(pwd)/dist/$bundle_name"
     if command -v zip &> /dev/null; then
-        (cd "$temp_dir" && zip -r "../../dist/$bundle_name" .)
+        (cd "$temp_dir" && zip -r "$output_path" .)
     elif command -v pwsh &> /dev/null; then
-        pwsh -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath 'dist/$bundle_name' -Force"
+        pwsh -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath '$output_path' -Force"
     elif command -v powershell &> /dev/null; then
-        powershell -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath 'dist/$bundle_name' -Force"
+        powershell -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath '$output_path' -Force"
     else
         echo "❌ No zip utility found"
         rm -rf "$temp_dir"

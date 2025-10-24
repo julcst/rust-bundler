@@ -6,7 +6,34 @@ Thank you for your interest in contributing to Rust Bundler!
 
 ### Testing Locally
 
-To test the action locally, you can use the bundling script directly:
+You can test the action using the included hello-world example:
+
+```bash
+# Build the example
+cd examples/hello-world
+cargo build --release
+cd ../..
+
+# Test bundling
+source scripts/bundle.sh
+bundle_application \
+  "hello-world" \
+  "examples/hello-world/assets/" \
+  "" \
+  "./examples/hello-world/target/release" \
+  "false" \
+  "" \
+  "" \
+  ""
+
+# Extract and test the bundle
+mkdir -p test-extract
+tar -xzf dist/hello-world-linux.tar.gz -C test-extract
+cd test-extract
+./hello-world
+```
+
+To test with your own binary, use the bundling script directly:
 
 ```bash
 # Source the script
@@ -26,7 +53,9 @@ bundle_application \
 
 ### Testing in a Workflow
 
-To test in a GitHub Actions workflow, create a test repository with a Rust project and reference this action:
+The repository includes a test workflow that automatically runs on every pull request. This workflow tests the hello-world example on Linux, Windows, and macOS to ensure the bundler works correctly across all platforms.
+
+You can also test in a GitHub Actions workflow by creating a test repository with a Rust project and reference this action:
 
 ```yaml
 - name: Bundle

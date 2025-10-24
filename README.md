@@ -1,5 +1,9 @@
 # Rust Bundler
 
+[![GitHub release](https://img.shields.io/github/v/release/julcst/rust-bundler)](https://github.com/julcst/rust-bundler/releases)
+[![GitHub marketplace](https://img.shields.io/badge/marketplace-rust--bundler-blue?logo=github)](https://github.com/marketplace/actions/rust-bundler)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A GitHub Action to automatically bundle Rust binaries for distribution on macOS, Windows, and Linux.
 
 ## Features
@@ -174,6 +178,31 @@ myapp-macos.app/
 - Creates compressed tar archives
 - Binary maintains executable permissions
 - Compatible with all major Linux distributions
+
+## Publishing to GitHub Marketplace
+
+This action is ready to be published to the GitHub Marketplace:
+
+1. Create a release with a tag (e.g., `v1.0.0`)
+2. The action will automatically appear in the GitHub Marketplace
+3. Users can reference it with: `julcst/rust-bundler@v1`
+
+### Version Tags
+
+We follow semantic versioning:
+- Major versions: `v1`, `v2` (breaking changes)
+- Minor versions: `v1.1`, `v1.2` (new features, backward compatible)
+- Patch versions: `v1.0.1`, `v1.0.2` (bug fixes)
+
+Users can pin to specific versions or use major version tags that always point to the latest compatible version.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes in each version.
 
 ## License
 

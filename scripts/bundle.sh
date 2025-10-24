@@ -85,6 +85,8 @@ bundle_linux() {
     # Copy additional files
     if [ -n "$include_files" ]; then
         for file in $include_files; do
+            # Remove trailing slash to ensure consistent cp behavior
+            file="${file%/}"
             if [ -e "$file" ]; then
                 echo "  📄 Including: $file"
                 cp -r "$file" "$temp_dir/"
@@ -122,6 +124,8 @@ bundle_windows() {
     # Copy additional files
     if [ -n "$include_files" ]; then
         for file in $include_files; do
+            # Remove trailing slash to ensure consistent cp behavior
+            file="${file%/}"
             if [ -e "$file" ]; then
                 echo "  📄 Including: $file"
                 cp -r "$file" "$temp_dir/"
@@ -136,8 +140,12 @@ bundle_windows() {
     if command -v zip &> /dev/null; then
         (cd "$temp_dir" && zip -r "$output_path" .)
     elif command -v pwsh &> /dev/null; then
+        # Ensure dist directory exists for PowerShell
+        mkdir -p "$(pwd)/dist"
         pwsh -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath '$output_path' -Force"
     elif command -v powershell &> /dev/null; then
+        # Ensure dist directory exists for PowerShell
+        mkdir -p "$(pwd)/dist"
         powershell -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath '$output_path' -Force"
     else
         echo "❌ No zip utility found"
@@ -186,6 +194,8 @@ bundle_macos() {
     # Copy additional files to MacOS directory
     if [ -n "$include_files" ]; then
         for file in $include_files; do
+            # Remove trailing slash to ensure consistent cp behavior
+            file="${file%/}"
             if [ -e "$file" ]; then
                 echo "  📄 Including: $file"
                 cp -r "$file" "$app_dir/Contents/MacOS/"

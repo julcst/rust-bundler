@@ -241,6 +241,18 @@ We follow semantic versioning:
 
 Users can pin to specific versions or use major version tags that always point to the latest compatible version.
 
+## Examples
+
+The repository includes a working example in the `examples/` directory:
+
+### Hello World Example
+
+A simple Rust application that demonstrates bundling assets with your application. The example reads and displays text from a bundled `assets/hello.txt` file, showing how to include additional files and folders in your bundles.
+
+See [examples/hello-world/README.md](examples/hello-world/README.md) for details.
+
+This example is automatically tested on Linux, Windows, and macOS via CI to ensure the bundler works correctly across all platforms.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.

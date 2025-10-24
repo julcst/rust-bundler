@@ -85,6 +85,8 @@ bundle_linux() {
     # Copy additional files
     if [ -n "$include_files" ]; then
         for file in $include_files; do
+            # Remove trailing slash to ensure consistent cp behavior
+            file="${file%/}"
             if [ -e "$file" ]; then
                 echo "  📄 Including: $file"
                 cp -r "$file" "$temp_dir/"
@@ -122,6 +124,8 @@ bundle_windows() {
     # Copy additional files
     if [ -n "$include_files" ]; then
         for file in $include_files; do
+            # Remove trailing slash to ensure consistent cp behavior
+            file="${file%/}"
             if [ -e "$file" ]; then
                 echo "  📄 Including: $file"
                 cp -r "$file" "$temp_dir/"
@@ -132,13 +136,19 @@ bundle_windows() {
     fi
     
     # Create zip (using PowerShell on Windows or zip command on Unix)
-    local output_path="$(pwd)/dist/$bundle_name"
     if command -v zip &> /dev/null; then
+        local output_path="$(pwd)/dist/$bundle_name"
         (cd "$temp_dir" && zip -r "$output_path" .)
     elif command -v pwsh &> /dev/null; then
-        pwsh -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath '$output_path' -Force"
+        # Create zip in temp location, then move it (avoids path translation issues)
+        local temp_zip="$temp_dir/$bundle_name"
+        (cd "$temp_dir" && pwsh -Command "Compress-Archive -Path * -DestinationPath '$bundle_name' -Force")
+        mv "$temp_zip" "dist/$bundle_name"
     elif command -v powershell &> /dev/null; then
-        powershell -Command "Compress-Archive -Path '$temp_dir/*' -DestinationPath '$output_path' -Force"
+        # Create zip in temp location, then move it (avoids path translation issues)
+        local temp_zip="$temp_dir/$bundle_name"
+        (cd "$temp_dir" && powershell -Command "Compress-Archive -Path * -DestinationPath '$bundle_name' -Force")
+        mv "$temp_zip" "dist/$bundle_name"
     else
         echo "❌ No zip utility found"
         rm -rf "$temp_dir"
@@ -186,6 +196,8 @@ bundle_macos() {
     # Copy additional files to MacOS directory
     if [ -n "$include_files" ]; then
         for file in $include_files; do
+            # Remove trailing slash to ensure consistent cp behavior
+            file="${file%/}"
             if [ -e "$file" ]; then
                 echo "  📄 Including: $file"
                 cp -r "$file" "$app_dir/Contents/MacOS/"

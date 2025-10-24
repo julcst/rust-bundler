@@ -36,7 +36,7 @@ jobs:
           binary-name: myapp
           output-name: MyApplication
           macos-sign: true
-          macos-sign-identity: "Developer ID Application: Your Name (TEAM_ID)"
+          macos-sign-identity: "Developer ID Application: Your Name (YOUR_TEAM_ID)"
           macos-bundle-id: com.example.myapp
           macos-app-name: "My Application"
           include-files: 'README.md LICENSE assets/'

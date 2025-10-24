@@ -99,7 +99,7 @@ jobs:
           binary-name: myapp
           output-name: MyApplication
           macos-sign: true
-          macos-sign-identity: "Developer ID Application: Your Name (TEAM_ID)"
+          macos-sign-identity: "Developer ID Application: Your Name (YOUR_TEAM_ID)"
           macos-bundle-id: com.example.myapp
           macos-app-name: "My Application"
           include-files: 'README.md LICENSE'
@@ -191,7 +191,9 @@ If you get permission errors when running the binary from the bundle:
 
 If code signing fails:
 - Ensure certificates are properly imported into the keychain
-- Use the correct signing identity format: "Developer ID Application: Name (TEAM_ID)"
+- Use the correct signing identity format: "Developer ID Application: Your Name (YOUR_TEAM_ID)"
+  - Replace "Your Name" with your developer name
+  - Replace "YOUR_TEAM_ID" with your Apple Team ID (10 characters)
 - Check that the bundle ID is in reverse domain notation (e.g., com.example.app)
 - Verify the certificate is valid and not expired
 
@@ -209,7 +211,7 @@ If additional files are missing from the bundle:
 - Additional files are placed in `Contents/MacOS/`
 - Code signing requires:
   - Valid Apple Developer certificate imported into keychain
-  - Signing identity (e.g., "Developer ID Application: Name (TEAM_ID)")
+  - Signing identity (e.g., "Developer ID Application: Name (YOUR_TEAM_ID)")
   - Bundle identifier (reverse domain notation)
 
 ### Windows

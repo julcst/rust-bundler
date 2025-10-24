@@ -15,6 +15,19 @@ A GitHub Action to automatically bundle Rust binaries for distribution on macOS,
 - 📦 **Flexible**: Include additional files and folders in your bundles
 - 🎯 **Simple**: Easy integration with your existing workflows
 
+## Quick Start
+
+Add this to your GitHub Actions workflow after building your Rust project:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    binary-name: your-app-name
+```
+
+That's it! The action will automatically detect the platform and create the appropriate bundle in the `dist/` directory.
+
 ## Usage
 
 ### Basic Example
@@ -158,6 +171,36 @@ myapp-macos.app/
 - The binary must be built before running this action (e.g., with `cargo build --release`)
 - For macOS code signing, proper certificates must be imported into the keychain first
 - For Windows ZIP creation on non-Windows runners, the `zip` utility must be available
+
+## Troubleshooting
+
+### Binary Not Found
+
+If you get "Binary not found" error:
+- Verify the binary name matches exactly (without .exe extension, even on Windows)
+- Check that `working-directory` points to the correct location
+- Ensure `cargo build --release` completed successfully
+
+### Permission Denied on Linux/macOS
+
+If you get permission errors when running the binary from the bundle:
+- The action automatically sets executable permissions for Linux tar.gz files
+- For macOS, the binary in the .app bundle is also marked as executable
+
+### Code Signing Fails on macOS
+
+If code signing fails:
+- Ensure certificates are properly imported into the keychain
+- Use the correct signing identity format: "Developer ID Application: Name (TEAM_ID)"
+- Check that the bundle ID is in reverse domain notation (e.g., com.example.app)
+- Verify the certificate is valid and not expired
+
+### Files Not Included
+
+If additional files are missing from the bundle:
+- File paths in `include-files` should be relative to the repository root
+- Use space-separated list: `"file1.txt file2.txt folder/"`
+- Check that the files exist before the bundling step runs
 
 ## Platform-Specific Notes
 

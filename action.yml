@@ -19,9 +19,9 @@ inputs:
     required: false
     default: ''
   working-directory:
-    description: 'Directory containing the binary to bundle'
+    description: 'Working directory (project root). Binary will be auto-discovered in target/release or target/debug.'
     required: false
-    default: './target/release'
+    default: '.'
   macos-sign:
     description: 'Enable macOS code signing (requires proper keychain setup)'
     required: false

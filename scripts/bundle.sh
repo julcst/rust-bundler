@@ -2,6 +2,46 @@
 
 set -e
 
+# Function to auto-discover binary location
+auto_discover_binary() {
+    local binary_name="$1"
+    local working_dir="$2"
+    
+    if [ -z "$binary_name" ]; then
+        return 1
+    fi
+    
+    # Search paths for the binary (relative to working_dir)
+    local search_paths=(
+        "target/release/$binary_name"
+        "target/debug/$binary_name"
+        "target/release/${binary_name}.exe"
+        "target/debug/${binary_name}.exe"
+        "./$binary_name"
+        "./${binary_name}.exe"
+        "$binary_name"
+        "${binary_name}.exe"
+    )
+    
+    local original_dir=$(pwd)
+    if [ -n "$working_dir" ] && [ "$working_dir" != "." ]; then
+        cd "$working_dir" 2>/dev/null || return 1
+    fi
+    
+    for path in "${search_paths[@]}"; do
+        if [ -f "$path" ]; then
+            # Return the directory containing the binary
+            local dir=$(dirname "$path")
+            cd "$original_dir"
+            echo "$dir"
+            return 0
+        fi
+    done
+    
+    cd "$original_dir"
+    return 1
+}
+
 # Function to auto-discover Cargo.toml
 auto_discover_cargo_toml() {
     local search_paths=(
@@ -180,19 +220,37 @@ bundle_application() {
         output_name="$binary_name"
     fi
     
+    # Default working directory to current directory if not specified
+    if [ -z "$working_directory" ]; then
+        working_directory="."
+    fi
+    
     # Detect OS
     OS=$(uname -s)
     
     echo "🎯 Bundling $binary_name for $OS"
     echo "📂 Working directory: $working_directory"
     
-    # Check if binary exists
+    # Auto-discover binary location if not explicitly in working_directory
     local binary_path=""
+    local binary_dir="$working_directory"
+    
+    # First, try to auto-discover the binary location
+    if discovered_dir=$(auto_discover_binary "$binary_name" "$working_directory"); then
+        if [ "$working_directory" != "." ]; then
+            binary_dir="$working_directory/$discovered_dir"
+        else
+            binary_dir="$discovered_dir"
+        fi
+        echo "🔍 Auto-discovered binary in: $binary_dir"
+    fi
+    
+    # Check if binary exists
     if [ "$OS" = "Darwin" ] || [ "$OS" = "Linux" ]; then
-        binary_path="$working_directory/$binary_name"
+        binary_path="$binary_dir/$binary_name"
     elif [ "$OS" = "MINGW64_NT" ] || [ "$OS" = "MSYS_NT" ] || [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; then
         OS="Windows"
-        binary_path="$working_directory/${binary_name}.exe"
+        binary_path="$binary_dir/${binary_name}.exe"
     else
         echo "❌ Unsupported OS: $OS"
         exit 1
@@ -200,6 +258,7 @@ bundle_application() {
     
     if [ ! -f "$binary_path" ]; then
         echo "❌ Binary not found at: $binary_path"
+        echo "   Searched in common build directories (target/release, target/debug)"
         exit 1
     fi
     

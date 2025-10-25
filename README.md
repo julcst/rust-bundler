@@ -30,10 +30,25 @@ With auto-discovery, you can use the action with minimal configuration:
 The action will automatically:
 - Discover `Cargo.toml` to extract package name and metadata (optional, works without it)
 - Use the package name as the binary name
+- Auto-discover the binary in `target/release` or `target/debug`
 - Look for `icon.png` in common locations (optional, works without it)
 - Detect the platform and create the appropriate bundle
 
 **Note:** Metadata and icons are always optional. The action works fine without them, creating minimal bundles containing just the binary and any included files.
+
+### Typical Usage (Recommended)
+
+Point to your project root and let auto-discovery do the rest:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    working-directory: examples/my-app  # Your project root
+    include-files: 'assets/ README.md LICENSE'
+```
+
+The binary will be auto-discovered in `target/release` or `target/debug`.
 
 ### With Only Binary Name
 
@@ -206,7 +221,7 @@ For signed macOS releases, add certificate import before bundling:
 | `binary-name` | Name of the binary to bundle (without extension). Auto-discovered from Cargo.toml if not provided. | No | Auto-discovered |
 | `include-files` | Space-separated list of files or folders to include | No | `""` |
 | `output-name` | Name of the output bundle (without extension) | No | Same as `binary-name` |
-| `working-directory` | Directory containing the binary | No | `./target/release` |
+| `working-directory` | Working directory (project root). Binary auto-discovered in target/release or target/debug. | No | `.` |
 | `icon-path` | Path to icon file (PNG format, will be converted per platform). Auto-discovered if not provided. | No | Auto-discovered |
 | `cargo-toml-path` | Path to Cargo.toml for extracting metadata. Auto-discovered if not provided. | No | Auto-discovered |
 | `macos-sign` | Enable macOS code signing | No | `false` |
@@ -278,6 +293,11 @@ The action automatically discovers common files when available:
 - `resources/icon.png`
 - `../icon.png`
 - `../assets/icon.png`
+
+**Binary location** (optional): Automatically searched in the following locations relative to `working-directory`:
+- `target/release/{binary-name}` (or `.exe` on Windows)
+- `target/debug/{binary-name}` (or `.exe` on Windows)
+- `./{binary-name}` (or `.exe` on Windows)
 
 **Binary name**: Automatically extracted from the `name` field in `Cargo.toml` if not explicitly provided.
 

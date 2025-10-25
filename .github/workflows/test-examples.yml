@@ -103,7 +103,12 @@ jobs:
         run: |
           echo "Checking bundle structure:"
           ls -la dist/hello-world-macos.app/Contents/MacOS/
-          echo "Running hello-world binary:"
+          ls -la dist/hello-world-macos.app/Contents/Resources/ || echo "No Resources directory"
+          echo "Testing .app bundle execution:"
+          # Test executing the .app bundle directly (macOS way)
+          open -W -a dist/hello-world-macos.app || true
+          # Also test the binary directly for verification
+          echo "Testing direct binary execution:"
           cd dist/hello-world-macos.app/Contents/MacOS
           ./hello-world
           

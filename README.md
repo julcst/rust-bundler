@@ -431,26 +431,6 @@ If additional files are missing from the bundle:
 - Use space-separated list: `"file1.txt file2.txt folder/"`
 - Check that the files exist before the bundling step runs
 
-## Platform-Specific Notes
-
-### macOS
-- Creates a standard macOS application bundle with `Info.plist`
-- Additional files are placed in `Contents/MacOS/`
-- Code signing requires:
-  - Valid Apple Developer certificate imported into keychain
-  - Signing identity (e.g., "Developer ID Application: Name (YOUR_TEAM_ID)")
-  - Bundle identifier (reverse domain notation)
-
-### Windows
-- Creates ZIP archives compatible with Windows
-- Binary is named with `.exe` extension automatically
-- Uses PowerShell's `Compress-Archive` or `zip` utility
-
-### Linux
-- Creates compressed tar archives
-- Binary maintains executable permissions
-- Compatible with all major Linux distributions
-
 ## Publishing to GitHub Marketplace
 
 This action is ready to be published to the GitHub Marketplace:

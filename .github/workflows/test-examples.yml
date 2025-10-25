@@ -41,6 +41,8 @@ jobs:
           binary-name: hello-world
           include-files: 'examples/hello-world/assets/'
           working-directory: './examples/hello-world/target/release'
+          icon-path: 'examples/hello-world/icon.png'
+          cargo-toml-path: 'examples/hello-world/Cargo.toml'
           
       - name: List bundle contents (Linux)
         if: runner.os == 'Linux'

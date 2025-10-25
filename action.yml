@@ -37,6 +37,14 @@ inputs:
     description: 'macOS application display name'
     required: false
     default: ''
+  icon-path:
+    description: 'Path to icon file (PNG format recommended, will be converted for each platform)'
+    required: false
+    default: ''
+  cargo-toml-path:
+    description: 'Path to Cargo.toml for extracting metadata (name, version, description, authors)'
+    required: false
+    default: ''
 
 outputs:
   bundle-path:
@@ -67,4 +75,6 @@ runs:
           "${{ inputs.macos-sign }}" \
           "${{ inputs.macos-sign-identity }}" \
           "${{ inputs.macos-bundle-id }}" \
-          "${{ inputs.macos-app-name }}"
+          "${{ inputs.macos-app-name }}" \
+          "${{ inputs.icon-path }}" \
+          "${{ inputs.cargo-toml-path }}"

@@ -515,6 +515,13 @@ EOF
 </plist>
 EOF
     
+    # Apply ad-hoc code signing to prevent "damaged" errors on macOS
+    # This is required for Apple Silicon and modern macOS versions
+    if command -v codesign &> /dev/null; then
+        echo "  🔏 Applying ad-hoc code signature..."
+        codesign --force --deep --sign - "$app_dir" 2>&1 || echo "  ⚠️  Ad-hoc signing failed (not critical)"
+    fi
+    
     echo "✅ Bundle created: $app_dir"
     echo "bundle-path=$app_dir" >> $GITHUB_OUTPUT
     echo "bundle-name=$bundle_name" >> $GITHUB_OUTPUT

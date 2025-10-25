@@ -244,6 +244,9 @@ The generated `.desktop` file follows the [Desktop Entry Specification](https://
 #### macOS Icons
 Icon conversion requires macOS-specific tools (`sips` and `iconutil`), which are included with macOS. When these tools are not available (e.g., on non-macOS runners), the original PNG will be included in the Resources directory as a fallback.
 
+#### macOS Code Signing
+All macOS `.app` bundles are automatically signed with an ad-hoc signature (using `codesign --sign -`) to prevent "damaged" errors on modern macOS and Apple Silicon. This allows the app to run locally without full code signing. For distribution, use the `macos-sign` option with a proper Developer ID certificate.
+
 ## Requirements
 
 - The binary must be built before running this action (e.g., with `cargo build --release`)
@@ -278,6 +281,13 @@ If code signing fails:
   - Replace "YOUR_TEAM_ID" with your Apple Team ID (10 characters)
 - Check that the bundle ID is in reverse domain notation (e.g., com.example.app)
 - Verify the certificate is valid and not expired
+
+### macOS "Damaged" or "Can't be opened" Error
+
+If macOS reports the app is damaged or can't be opened:
+- The bundler automatically applies ad-hoc code signing to prevent this issue
+- If you still see this error after downloading, run: `xattr -cr path/to/app.app` to remove quarantine attributes
+- For distribution to other users, use proper code signing with `macos-sign: true` and a Developer ID certificate
 
 ### Files Not Included
 

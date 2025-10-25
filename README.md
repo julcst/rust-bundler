@@ -211,8 +211,8 @@ When you provide `cargo-toml-path`, the bundler extracts:
 
 When you provide `icon-path` (PNG format recommended):
 - **Linux**: Copied as-is alongside the `.desktop` file
-- **macOS**: Automatically converted to `.icns` format using `sips` and `iconutil`
-- **Windows**: Automatically converted to `.ico` format using ImageMagick or `icotool` (if available)
+- **macOS**: Automatically converted to `.icns` format using `sips` and `iconutil` (falls back to PNG if tools unavailable)
+- **Windows**: Automatically converted to `.ico` format using ImageMagick or `icotool` (falls back to PNG if tools unavailable)
 
 ### Platform-Specific Notes
 
@@ -242,16 +242,17 @@ The `winres` crate will automatically read metadata from your `Cargo.toml`.
 The generated `.desktop` file follows the [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/). Install it to `~/.local/share/applications/` or `/usr/share/applications/` for desktop integration.
 
 #### macOS Icons
-Icon conversion requires macOS-specific tools (`sips` and `iconutil`). The bundler will automatically use these on macOS runners. On other platforms, the original PNG will be included as a fallback.
+Icon conversion requires macOS-specific tools (`sips` and `iconutil`), which are included with macOS. When these tools are not available (e.g., on non-macOS runners), the original PNG will be included in the Resources directory as a fallback.
 
 ## Requirements
 
 - The binary must be built before running this action (e.g., with `cargo build --release`)
 - For macOS code signing, proper certificates must be imported into the keychain first
 - For Windows ZIP creation on non-Windows runners, the `zip` utility must be available
-- For icon conversion:
-  - **macOS**: `sips` and `iconutil` (included with macOS)
-  - **Windows**: ImageMagick or `icotool` (optional, will use PNG fallback if unavailable)
+- For optimal icon conversion:
+  - **macOS**: `sips` and `iconutil` (included with macOS, falls back to PNG if unavailable)
+  - **Windows**: ImageMagick or `icotool` (optional, falls back to PNG if unavailable)
+  - **Linux**: No conversion needed (uses PNG directly)
 
 ## Troubleshooting
 

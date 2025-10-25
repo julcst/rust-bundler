@@ -243,8 +243,8 @@ bundle_application() {
     
     # Auto-discover icon if not provided
     if [ -z "$icon_path" ]; then
-        if discovered_icon=$(auto_discover_icon); then
-            icon_path="$discovered_icon"
+        if discovered_icon=$(cd "$working_directory" && auto_discover_icon); then
+            icon_path="$working_directory/$discovered_icon"
             echo "🎨 Auto-discovered icon: $icon_path"
         fi
     fi

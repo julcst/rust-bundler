@@ -126,3 +126,57 @@ jobs:
         with:
           name: hello-world-${{ matrix.os }}
           path: dist/*
+
+  test-auto-discovery:
+    name: Test auto-discovery on ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Setup sccache (optional)
+        uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: examples/hello-world
+      
+      - name: Configure sccache
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      
+      - name: Build hello-world example
+        run: cargo build --release
+        working-directory: ./examples/hello-world
+        
+      - name: Bundle with auto-discovery (minimal config)
+        uses: ./
+        with:
+          working-directory: './examples/hello-world/target/release'
+          include-files: 'examples/hello-world/assets/'
+          
+      - name: Verify bundle was created
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            test -f dist/hello-world-linux.tar.gz && echo "✅ Linux bundle created"
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            test -f dist/hello-world-windows.zip && echo "✅ Windows bundle created"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            test -d dist/hello-world-macos.app && echo "✅ macOS bundle created"
+          fi

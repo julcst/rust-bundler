@@ -2,6 +2,46 @@
 
 set -e
 
+# Function to auto-discover Cargo.toml
+auto_discover_cargo_toml() {
+    local search_paths=(
+        "Cargo.toml"
+        "./Cargo.toml"
+        "../Cargo.toml"
+        "../../Cargo.toml"
+    )
+    
+    for path in "${search_paths[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Function to auto-discover icon file
+auto_discover_icon() {
+    local search_paths=(
+        "icon.png"
+        "./icon.png"
+        "assets/icon.png"
+        "resources/icon.png"
+        "../icon.png"
+        "../assets/icon.png"
+    )
+    
+    for path in "${search_paths[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
 # Function to parse Cargo.toml and extract metadata
 parse_cargo_toml() {
     local cargo_toml_path="$1"
@@ -96,7 +136,15 @@ bundle_application() {
     local icon_path="$9"
     local cargo_toml_path="${10}"
     
-    # Parse Cargo.toml if provided
+    # Auto-discover Cargo.toml if not provided
+    if [ -z "$cargo_toml_path" ]; then
+        if discovered_cargo=$(auto_discover_cargo_toml); then
+            cargo_toml_path="$discovered_cargo"
+            echo "📋 Auto-discovered Cargo.toml: $cargo_toml_path"
+        fi
+    fi
+    
+    # Parse Cargo.toml if available
     if [ -n "$cargo_toml_path" ] && [ -f "$cargo_toml_path" ]; then
         echo "📋 Parsing metadata from: $cargo_toml_path"
         parse_cargo_toml "$cargo_toml_path"
@@ -104,6 +152,27 @@ bundle_application() {
         echo "  Version: $CARGO_PKG_VERSION"
         [ -n "$CARGO_PKG_DESCRIPTION" ] && echo "  Description: $CARGO_PKG_DESCRIPTION"
         [ -n "$CARGO_PKG_AUTHORS" ] && echo "  Author: $CARGO_PKG_AUTHORS"
+        
+        # Auto-discover binary name from Cargo.toml if not provided
+        if [ -z "$binary_name" ] && [ -n "$CARGO_PKG_NAME" ]; then
+            binary_name="$CARGO_PKG_NAME"
+            echo "🔍 Auto-discovered binary name from Cargo.toml: $binary_name"
+        fi
+    fi
+    
+    # Check if binary name is still empty
+    if [ -z "$binary_name" ]; then
+        echo "❌ Error: binary-name is required and could not be auto-discovered"
+        echo "   Please provide binary-name input or ensure Cargo.toml is available"
+        exit 1
+    fi
+    
+    # Auto-discover icon if not provided
+    if [ -z "$icon_path" ]; then
+        if discovered_icon=$(auto_discover_icon); then
+            icon_path="$discovered_icon"
+            echo "🎨 Auto-discovered icon: $icon_path"
+        fi
     fi
     
     # Determine output name

@@ -7,8 +7,9 @@ branding:
 
 inputs:
   binary-name:
-    description: 'Name of the binary to bundle (without extension)'
-    required: true
+    description: 'Name of the binary to bundle (without extension). Auto-discovered from Cargo.toml if not provided.'
+    required: false
+    default: ''
   include-files:
     description: 'Space-separated list of files or folders to include in the bundle'
     required: false

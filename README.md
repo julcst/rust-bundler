@@ -18,6 +18,25 @@ A GitHub Action to automatically bundle Rust binaries for distribution on macOS,
 
 ## Quick Start
 
+### Minimal Configuration
+
+With auto-discovery, you can use the action with minimal configuration:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+```
+
+The action will automatically:
+- Discover `Cargo.toml` to extract package name and metadata
+- Use the package name as the binary name
+- Look for `icon.png` in common locations (root, assets/, resources/)
+- Detect the platform and create the appropriate bundle
+
+### Explicit Configuration
+
+You can also specify everything explicitly:
+
 ```yaml
 - name: Bundle Application
   uses: julcst/rust-bundler@v1
@@ -171,12 +190,12 @@ For signed macOS releases, add certificate import before bundling:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `binary-name` | Name of the binary to bundle (without extension) | Yes | - |
+| `binary-name` | Name of the binary to bundle (without extension). Auto-discovered from Cargo.toml if not provided. | No | Auto-discovered |
 | `include-files` | Space-separated list of files or folders to include | No | `""` |
 | `output-name` | Name of the output bundle (without extension) | No | Same as `binary-name` |
 | `working-directory` | Directory containing the binary | No | `./target/release` |
-| `icon-path` | Path to icon file (PNG format, will be converted per platform) | No | `""` |
-| `cargo-toml-path` | Path to Cargo.toml for extracting metadata | No | `""` |
+| `icon-path` | Path to icon file (PNG format, will be converted per platform). Auto-discovered if not provided. | No | Auto-discovered |
+| `cargo-toml-path` | Path to Cargo.toml for extracting metadata. Auto-discovered if not provided. | No | Auto-discovered |
 | `macos-sign` | Enable macOS code signing | No | `false` |
 | `macos-sign-identity` | macOS code signing identity | No | `""` |
 | `macos-bundle-id` | macOS bundle identifier | No | `com.example.{binary-name}` |
@@ -229,17 +248,37 @@ myapp-macos.app/
 
 The bundler can automatically extract metadata from your `Cargo.toml` and embed icons into your application bundles.
 
+### Auto-Discovery
+
+The action automatically discovers common files:
+
+**Cargo.toml**: Searched in the following locations:
+- `Cargo.toml` (current directory)
+- `./Cargo.toml`
+- `../Cargo.toml`
+- `../../Cargo.toml`
+
+**Icon file**: Searched in the following locations:
+- `icon.png` (current directory)
+- `./icon.png`
+- `assets/icon.png`
+- `resources/icon.png`
+- `../icon.png`
+- `../assets/icon.png`
+
+**Binary name**: Automatically extracted from the `name` field in `Cargo.toml` if not explicitly provided.
+
 ### Metadata Extraction
 
-When you provide `cargo-toml-path`, the bundler extracts:
-- **Package Name**: Used for display name
+When `Cargo.toml` is found (auto-discovered or explicitly provided), the bundler extracts:
+- **Package Name**: Used for display name and binary name (if not provided)
 - **Version**: Embedded in platform-specific metadata
 - **Description**: Used in `.desktop` files (Linux), `Info.plist` (macOS), and resource files (Windows)
 - **Authors**: Used in Windows resource files
 
 ### Icon Conversion
 
-When you provide `icon-path` (PNG format recommended):
+When an icon is found (auto-discovered or explicitly provided), PNG format recommended:
 - **Linux**: Copied as-is alongside the `.desktop` file
 - **macOS**: Automatically converted to `.icns` format using `sips` and `iconutil` (falls back to PNG if tools unavailable)
 - **Windows**: Automatically converted to `.ico` format using ImageMagick or `icotool` (falls back to PNG if tools unavailable)

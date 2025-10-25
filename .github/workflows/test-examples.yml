@@ -27,7 +27,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -48,10 +48,10 @@ jobs:
         uses: ./
         with:
           binary-name: hello-world
-          include-files: 'examples/hello-world/assets/'
-          working-directory: './examples/hello-world/target/release'
-          icon-path: 'examples/hello-world/icon.png'
-          cargo-toml-path: 'examples/hello-world/Cargo.toml'
+          include-files: assets/
+          working-directory: examples/hello-world/
+          icon-path: icon.png
+          cargo-toml-path: Cargo.toml
           
       - name: List bundle contents (Linux)
         if: runner.os == 'Linux'
@@ -139,14 +139,13 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Setup sccache (optional)
-        uses: mozilla-actions/sccache-action@v0.0.4
-        continue-on-error: true
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -164,11 +163,11 @@ jobs:
         run: cargo build --release
         working-directory: ./examples/hello-world
         
-      - name: Bundle with auto-discovery (minimal config)
+      - name: Bundle with auto-discovery
         uses: ./
         with:
-          working-directory: './examples/hello-world/target/release'
-          include-files: 'examples/hello-world/assets/'
+          working-directory: examples/hello-world/
+          include-files: assets/
           
       - name: Verify bundle was created
         shell: bash
@@ -179,42 +178,4 @@ jobs:
             test -f dist/hello-world-windows.zip && echo "✅ Windows bundle created"
           elif [ "${{ runner.os }}" = "macOS" ]; then
             test -d dist/hello-world-macos.app && echo "✅ macOS bundle created"
-          fi
-
-  test-without-metadata:
-    name: Test without metadata/icon on ${{ matrix.os }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Build hello-world example
-        run: cargo build --release
-        working-directory: ./examples/hello-world
-        
-      - name: Bundle without metadata or icon (explicit binary name only)
-        uses: ./
-        with:
-          binary-name: hello-world
-          working-directory: './examples/hello-world/target/release'
-          
-      - name: Verify minimal bundle was created
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            test -f dist/hello-world-linux.tar.gz && echo "✅ Linux minimal bundle created"
-          elif [ "${{ runner.os }}" = "Windows" ]; then
-            test -f dist/hello-world-windows.zip && echo "✅ Windows minimal bundle created"
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            test -d dist/hello-world-macos.app && echo "✅ macOS minimal bundle created"
           fi

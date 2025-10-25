@@ -8,9 +8,10 @@ A GitHub Action to automatically bundle Rust binaries for distribution on macOS,
 
 ## Features
 
-- 🪟 **Windows**: Creates `.zip` archives
-- 🐧 **Linux**: Creates `.tar.gz` archives  
-- 🍎 **macOS**: Creates `.app` bundles with proper structure
+- 🪟 **Windows**: Creates `.zip` archives with icon and resource files
+- 🐧 **Linux**: Creates `.tar.gz` archives with `.desktop` files
+- 🍎 **macOS**: Creates `.app` bundles with proper structure and icons
+- 🎨 **Metadata & Icons**: Automatically extracts metadata from `Cargo.toml` and embeds icons
 - 🔐 **Code Signing**: Supports macOS code signing
 - 📦 **Flexible**: Include additional files and folders in your bundles
 - 🎯 **Simple**: Easy integration with your existing workflows
@@ -82,6 +83,24 @@ jobs:
           working-directory: './target/release'
 ```
 
+### Example with Metadata and Icon
+
+```yaml
+      - name: Bundle with Metadata and Icon
+        uses: julcst/rust-bundler@v1
+        with:
+          binary-name: myapp
+          output-name: MyApplication
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
+          include-files: 'README.md LICENSE'
+```
+
+This will:
+- **Linux**: Include a `.desktop` file with metadata and `icon.png`
+- **macOS**: Convert `icon.png` to `.icns` format and update `Info.plist` with version and description
+- **Windows**: Convert `icon.png` to `.ico` format and generate resource files (`.rc`) for build-time embedding
+
 ### macOS Code Signing Example
 
 ```yaml
@@ -102,6 +121,8 @@ jobs:
           macos-sign-identity: "Developer ID Application: Your Name (YOUR_TEAM_ID)"
           macos-bundle-id: com.example.myapp
           macos-app-name: "My Application"
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
           include-files: 'README.md LICENSE'
 ```
 
@@ -124,6 +145,8 @@ jobs:
 | `include-files` | Space-separated list of files or folders to include | No | `""` |
 | `output-name` | Name of the output bundle (without extension) | No | Same as `binary-name` |
 | `working-directory` | Directory containing the binary | No | `./target/release` |
+| `icon-path` | Path to icon file (PNG format, will be converted per platform) | No | `""` |
+| `cargo-toml-path` | Path to Cargo.toml for extracting metadata | No | `""` |
 | `macos-sign` | Enable macOS code signing | No | `false` |
 | `macos-sign-identity` | macOS code signing identity | No | `""` |
 | `macos-bundle-id` | macOS bundle identifier | No | `com.example.{binary-name}` |
@@ -142,6 +165,9 @@ jobs:
 ```
 myapp-windows.zip
 ├── myapp.exe
+├── myapp.ico                      # Converted icon (if icon-path provided)
+├── myapp.rc                       # Resource file template (if cargo-toml-path provided)
+├── WINDOWS_RESOURCES_README.txt   # Instructions for embedding resources
 ├── README.md
 └── LICENSE
 ```
@@ -150,6 +176,8 @@ myapp-windows.zip
 ```
 myapp-linux.tar.gz
 ├── myapp
+├── myapp.png                      # Icon (if icon-path provided)
+├── myapp.desktop                  # Desktop entry (if cargo-toml-path provided)
 ├── README.md
 └── LICENSE
 ```
@@ -158,19 +186,72 @@ myapp-linux.tar.gz
 ```
 myapp-macos.app/
 └── Contents/
-    ├── Info.plist
+    ├── Info.plist                 # With metadata from Cargo.toml
     ├── MacOS/
     │   ├── myapp
     │   ├── README.md
     │   └── LICENSE
     └── Resources/
+        └── AppIcon.icns           # Converted icon (if icon-path provided)
 ```
+
+## Metadata and Icon Support
+
+The bundler can automatically extract metadata from your `Cargo.toml` and embed icons into your application bundles.
+
+### Metadata Extraction
+
+When you provide `cargo-toml-path`, the bundler extracts:
+- **Package Name**: Used for display name
+- **Version**: Embedded in platform-specific metadata
+- **Description**: Used in `.desktop` files (Linux), `Info.plist` (macOS), and resource files (Windows)
+- **Authors**: Used in Windows resource files
+
+### Icon Conversion
+
+When you provide `icon-path` (PNG format recommended):
+- **Linux**: Copied as-is alongside the `.desktop` file
+- **macOS**: Automatically converted to `.icns` format using `sips` and `iconutil`
+- **Windows**: Automatically converted to `.ico` format using ImageMagick or `icotool` (if available)
+
+### Platform-Specific Notes
+
+#### Windows Resource Embedding
+Windows resource files (`.rc`) are included in the bundle for reference. To embed icons and metadata at build time:
+
+1. Add `winres` to your `Cargo.toml`:
+   ```toml
+   [build-dependencies]
+   winres = "0.1"
+   ```
+
+2. Create a `build.rs` file:
+   ```rust
+   fn main() {
+       if cfg!(target_os = "windows") {
+           let mut res = winres::WindowsResource::new();
+           res.set_icon("icon.ico");
+           res.compile().unwrap();
+       }
+   }
+   ```
+
+The `winres` crate will automatically read metadata from your `Cargo.toml`.
+
+#### Linux Desktop Files
+The generated `.desktop` file follows the [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/). Install it to `~/.local/share/applications/` or `/usr/share/applications/` for desktop integration.
+
+#### macOS Icons
+Icon conversion requires macOS-specific tools (`sips` and `iconutil`). The bundler will automatically use these on macOS runners. On other platforms, the original PNG will be included as a fallback.
 
 ## Requirements
 
 - The binary must be built before running this action (e.g., with `cargo build --release`)
 - For macOS code signing, proper certificates must be imported into the keychain first
 - For Windows ZIP creation on non-Windows runners, the `zip` utility must be available
+- For icon conversion:
+  - **macOS**: `sips` and `iconutil` (included with macOS)
+  - **Windows**: ImageMagick or `icotool` (optional, will use PNG fallback if unavailable)
 
 ## Troubleshooting
 

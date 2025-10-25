@@ -11,34 +11,31 @@ auto_discover_binary() {
         return 1
     fi
     
+    # Normalize working_dir
+    if [ -z "$working_dir" ]; then
+        working_dir="."
+    fi
+    
     # Search paths for the binary (relative to working_dir)
     local search_paths=(
         "target/release/$binary_name"
         "target/debug/$binary_name"
         "target/release/${binary_name}.exe"
         "target/debug/${binary_name}.exe"
-        "./$binary_name"
-        "./${binary_name}.exe"
         "$binary_name"
         "${binary_name}.exe"
     )
     
-    local original_dir=$(pwd)
-    if [ -n "$working_dir" ] && [ "$working_dir" != "." ]; then
-        cd "$working_dir" 2>/dev/null || return 1
-    fi
-    
+    # Search for binary in working_dir
     for path in "${search_paths[@]}"; do
-        if [ -f "$path" ]; then
+        local full_path="$working_dir/$path"
+        if [ -f "$full_path" ]; then
             # Return the directory containing the binary
-            local dir=$(dirname "$path")
-            cd "$original_dir"
-            echo "$dir"
+            echo "$(dirname "$full_path")"
             return 0
         fi
     done
     
-    cd "$original_dir"
     return 1
 }
 
@@ -237,11 +234,7 @@ bundle_application() {
     
     # First, try to auto-discover the binary location
     if discovered_dir=$(auto_discover_binary "$binary_name" "$working_directory"); then
-        if [ "$working_directory" != "." ]; then
-            binary_dir="$working_directory/$discovered_dir"
-        else
-            binary_dir="$discovered_dir"
-        fi
+        binary_dir="$discovered_dir"
         echo "🔍 Auto-discovered binary in: $binary_dir"
     fi
     

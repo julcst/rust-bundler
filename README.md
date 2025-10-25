@@ -54,13 +54,15 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Setup sccache
+      - name: Setup sccache (optional)
         uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
       
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       
       - name: Configure sccache
+        continue-on-error: true
         run: |
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
@@ -114,8 +116,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       
-      - name: Setup sccache
+      - name: Setup sccache (optional)
         uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
       
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2

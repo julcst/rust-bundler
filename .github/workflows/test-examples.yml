@@ -9,6 +9,11 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+
 jobs:
   test-hello-world:
     name: Test hello-world example on ${{ matrix.os }}
@@ -27,21 +32,13 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Setup sccache (optional)
-        uses: mozilla-actions/sccache-action@v0.0.4
-        continue-on-error: true
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: examples/hello-world
-      
-      - name: Configure sccache
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
       
       - name: Build hello-world example
         run: cargo build --release

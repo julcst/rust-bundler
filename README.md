@@ -18,20 +18,20 @@ A GitHub Action to automatically bundle Rust binaries for distribution on macOS,
 
 ## Quick Start
 
-Add this to your GitHub Actions workflow after building your Rust project:
-
 ```yaml
 - name: Bundle Application
   uses: julcst/rust-bundler@v1
   with:
     binary-name: your-app-name
+    icon-path: 'icon.png'
+    cargo-toml-path: 'Cargo.toml'
 ```
 
-That's it! The action will automatically detect the platform and create the appropriate bundle in the `dist/` directory.
+The action automatically detects the platform and creates the appropriate bundle in the `dist/` directory with embedded metadata and icons.
 
 ## Usage
 
-### Basic Example
+### Complete Example with Caching
 
 ```yaml
 name: Release
@@ -51,10 +51,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Configure sccache
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+        shell: bash
           
       - name: Build
         run: cargo build --release
@@ -63,6 +73,8 @@ jobs:
         uses: julcst/rust-bundler@v1
         with:
           binary-name: myapp
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
           
       - name: Upload Bundle
         uses: actions/upload-artifact@v4
@@ -71,70 +83,85 @@ jobs:
           path: dist/*
 ```
 
-### Advanced Example with Additional Files
+### Cross-Platform Release Example
 
 ```yaml
-      - name: Bundle with Additional Files
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          RUSTC_WRAPPER: sccache
+        
+      - name: Bundle
         uses: julcst/rust-bundler@v1
         with:
           binary-name: myapp
-          output-name: MyApplication
-          include-files: 'README.md LICENSE config.json assets/'
-          working-directory: './target/release'
-```
-
-### Example with Metadata and Icon
-
-```yaml
-      - name: Bundle with Metadata and Icon
-        uses: julcst/rust-bundler@v1
-        with:
-          binary-name: myapp
-          output-name: MyApplication
           icon-path: 'icon.png'
           cargo-toml-path: 'Cargo.toml'
           include-files: 'README.md LICENSE'
+          working-directory: './target/${{ matrix.target }}/release'
+          
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
 ```
 
-This will:
-- **Linux**: Include a `.desktop` file with metadata and `icon.png`
-- **macOS**: Convert `icon.png` to `.icns` format and update `Info.plist` with version and description
-- **Windows**: Convert `icon.png` to `.ico` format and generate resource files (`.rc`) for build-time embedding
+### macOS Code Signing
 
-### macOS Code Signing Example
+For signed macOS releases, add certificate import before bundling:
 
 ```yaml
       - name: Import Code Signing Certificate
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
           p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
           
-      - name: Bundle and Sign for macOS
-        if: matrix.os == 'macos-latest'
+      - name: Bundle and Sign
+        if: runner.os == 'macOS'
         uses: julcst/rust-bundler@v1
         with:
           binary-name: myapp
-          output-name: MyApplication
           macos-sign: true
-          macos-sign-identity: "Developer ID Application: Your Name (YOUR_TEAM_ID)"
+          macos-sign-identity: "Developer ID Application: Your Name (TEAM_ID)"
           macos-bundle-id: com.example.myapp
-          macos-app-name: "My Application"
           icon-path: 'icon.png'
           cargo-toml-path: 'Cargo.toml'
-          include-files: 'README.md LICENSE'
-```
-
-### Publishing to GitHub Releases
-
-```yaml
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Inputs

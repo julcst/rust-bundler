@@ -24,13 +24,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          
+          workspaces: examples/hello-world
+      
+      - name: Configure sccache
+        shell: bash
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      
       - name: Build hello-world example
         run: cargo build --release
         working-directory: ./examples/hello-world

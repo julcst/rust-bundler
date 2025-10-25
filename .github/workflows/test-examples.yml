@@ -112,8 +112,8 @@ jobs:
           ls -la dist/hello-world-macos.app/Contents/MacOS/
           ls -la dist/hello-world-macos.app/Contents/Resources/ || echo "No Resources directory"
           echo "Testing .app bundle execution:"
-          # Test executing the .app bundle directly (macOS way)
-          open -W -a dist/hello-world-macos.app || true
+          # Test executing the .app bundle directly (macOS way) - use absolute path
+          open -W -a "$(pwd)/dist/hello-world-macos.app" || true
           # Also test the binary directly for verification
           echo "Testing direct binary execution:"
           cd dist/hello-world-macos.app/Contents/MacOS

@@ -263,17 +263,17 @@ bundle_application() {
     # Bundle based on OS
     case "$OS" in
         Linux)
-            bundle_linux "$binary_name" "$binary_path" "$include_files" "$output_name" "$icon_path" "$cargo_toml_path"
+            bundle_linux "$binary_name" "$binary_path" "$include_files" "$output_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             ;;
         Darwin)
             if [ "$macos_sign" = "true" ]; then
-                bundle_macos_with_signing "$binary_name" "$binary_path" "$include_files" "$output_name" "$macos_sign_identity" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path"
+                bundle_macos_with_signing "$binary_name" "$binary_path" "$include_files" "$output_name" "$macos_sign_identity" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             else
-                bundle_macos "$binary_name" "$binary_path" "$include_files" "$output_name" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path"
+                bundle_macos "$binary_name" "$binary_path" "$include_files" "$output_name" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             fi
             ;;
         Windows)
-            bundle_windows "$binary_name" "$binary_path" "$include_files" "$output_name" "$icon_path" "$cargo_toml_path"
+            bundle_windows "$binary_name" "$binary_path" "$include_files" "$output_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             ;;
         *)
             echo "❌ Unsupported OS: $OS"
@@ -289,6 +289,7 @@ bundle_linux() {
     local output_name="$4"
     local icon_path="$5"
     local cargo_toml_path="$6"
+    local working_directory="$7"
     
     local bundle_name="${output_name}-linux.tar.gz"
     local temp_dir=$(mktemp -d)
@@ -326,16 +327,17 @@ Categories=Utility;
 EOF
     fi
     
-    # Copy additional files
+    # Copy additional files (relative to working_directory)
     if [ -n "$include_files" ]; then
         for file in $include_files; do
             # Remove trailing slash to ensure consistent cp behavior
             file="${file%/}"
-            if [ -e "$file" ]; then
+            local file_path="$working_directory/$file"
+            if [ -e "$file_path" ]; then
                 echo "  📄 Including: $file"
-                cp -r "$file" "$temp_dir/"
+                cp -r "$file_path" "$temp_dir/"
             else
-                echo "  ⚠️  File not found: $file"
+                echo "  ⚠️  File not found: $file_path"
             fi
         done
     fi
@@ -358,6 +360,7 @@ bundle_windows() {
     local output_name="$4"
     local icon_path="$5"
     local cargo_toml_path="$6"
+    local working_directory="$7"
     
     local bundle_name="${output_name}-windows.zip"
     local temp_dir=$(mktemp -d)
@@ -471,16 +474,17 @@ For more information, see: https://docs.rs/winres/
 EOF
     fi
     
-    # Copy additional files
+    # Copy additional files (relative to working_directory)
     if [ -n "$include_files" ]; then
         for file in $include_files; do
             # Remove trailing slash to ensure consistent cp behavior
             file="${file%/}"
-            if [ -e "$file" ]; then
+            local file_path="$working_directory/$file"
+            if [ -e "$file_path" ]; then
                 echo "  📄 Including: $file"
-                cp -r "$file" "$temp_dir/"
+                cp -r "$file_path" "$temp_dir/"
             else
-                echo "  ⚠️  File not found: $file"
+                echo "  ⚠️  File not found: $file_path"
             fi
         done
     fi
@@ -522,6 +526,7 @@ bundle_macos() {
     local app_name="$6"
     local icon_path="$7"
     local cargo_toml_path="$8"
+    local working_directory="$9"
     
     # Set defaults
     if [ -z "$app_name" ]; then
@@ -570,16 +575,17 @@ bundle_macos() {
         fi
     fi
     
-    # Copy additional files to MacOS directory
+    # Copy additional files to MacOS directory (relative to working_directory)
     if [ -n "$include_files" ]; then
         for file in $include_files; do
             # Remove trailing slash to ensure consistent cp behavior
             file="${file%/}"
-            if [ -e "$file" ]; then
+            local file_path="$working_directory/$file"
+            if [ -e "$file_path" ]; then
                 echo "  📄 Including: $file"
-                cp -r "$file" "$app_dir/Contents/MacOS/"
+                cp -r "$file_path" "$app_dir/Contents/MacOS/"
             else
-                echo "  ⚠️  File not found: $file"
+                echo "  ⚠️  File not found: $file_path"
             fi
         done
     fi
@@ -658,9 +664,10 @@ bundle_macos_with_signing() {
     local app_name="$7"
     local icon_path="$8"
     local cargo_toml_path="$9"
+    local working_directory="${10}"
     
     # First create the unsigned bundle
-    bundle_macos "$binary_name" "$binary_path" "$include_files" "$output_name" "$bundle_id" "$app_name" "$icon_path" "$cargo_toml_path"
+    bundle_macos "$binary_name" "$binary_path" "$include_files" "$output_name" "$bundle_id" "$app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
     
     local bundle_name="${output_name}-macos.app"
     local app_dir="dist/$bundle_name"

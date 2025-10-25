@@ -167,6 +167,7 @@ jobs:
         uses: ./
         with:
           working-directory: examples/hello-world/
+          binary-name: hello-world
           include-files: assets/
           
       - name: Verify bundle was created

@@ -28,10 +28,23 @@ With auto-discovery, you can use the action with minimal configuration:
 ```
 
 The action will automatically:
-- Discover `Cargo.toml` to extract package name and metadata
+- Discover `Cargo.toml` to extract package name and metadata (optional, works without it)
 - Use the package name as the binary name
-- Look for `icon.png` in common locations (root, assets/, resources/)
+- Look for `icon.png` in common locations (optional, works without it)
 - Detect the platform and create the appropriate bundle
+
+**Note:** Metadata and icons are always optional. The action works fine without them, creating minimal bundles containing just the binary and any included files.
+
+### With Only Binary Name
+
+If auto-discovery doesn't work or you don't have Cargo.toml:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    binary-name: your-app-name
+```
 
 ### Explicit Configuration
 
@@ -246,19 +259,19 @@ myapp-macos.app/
 
 ## Metadata and Icon Support
 
-The bundler can automatically extract metadata from your `Cargo.toml` and embed icons into your application bundles.
+The bundler can automatically extract metadata from your `Cargo.toml` and embed icons into your application bundles. **Both metadata and icons are completely optional** - the action works fine without them, creating minimal bundles.
 
-### Auto-Discovery
+### Auto-Discovery (Optional)
 
-The action automatically discovers common files:
+The action automatically discovers common files when available:
 
-**Cargo.toml**: Searched in the following locations:
+**Cargo.toml** (optional): Searched in the following locations:
 - `Cargo.toml` (current directory)
 - `./Cargo.toml`
 - `../Cargo.toml`
 - `../../Cargo.toml`
 
-**Icon file**: Searched in the following locations:
+**Icon file** (optional): Searched in the following locations:
 - `icon.png` (current directory)
 - `./icon.png`
 - `assets/icon.png`
@@ -268,7 +281,9 @@ The action automatically discovers common files:
 
 **Binary name**: Automatically extracted from the `name` field in `Cargo.toml` if not explicitly provided.
 
-### Metadata Extraction
+If none of these files are found, the action continues normally and creates a minimal bundle.
+
+### Metadata Extraction (Optional)
 
 When `Cargo.toml` is found (auto-discovered or explicitly provided), the bundler extracts:
 - **Package Name**: Used for display name and binary name (if not provided)
@@ -276,17 +291,21 @@ When `Cargo.toml` is found (auto-discovered or explicitly provided), the bundler
 - **Description**: Used in `.desktop` files (Linux), `Info.plist` (macOS), and resource files (Windows)
 - **Authors**: Used in Windows resource files
 
-### Icon Conversion
+If no `Cargo.toml` is found, bundles are created without metadata.
+
+### Icon Conversion (Optional)
 
 When an icon is found (auto-discovered or explicitly provided), PNG format recommended:
 - **Linux**: Copied as-is alongside the `.desktop` file
 - **macOS**: Automatically converted to `.icns` format using `sips` and `iconutil` (falls back to PNG if tools unavailable)
 - **Windows**: Automatically converted to `.ico` format using ImageMagick or `icotool` (falls back to PNG if tools unavailable)
 
+If no icon is found, bundles are created without icons.
+
 ### Platform-Specific Notes
 
-#### Windows Resource Embedding
-Windows resource files (`.rc`) are included in the bundle for reference. To embed icons and metadata at build time:
+#### Windows Resource Embedding (Optional)
+Windows resource files (`.rc`) are included in the bundle for reference when metadata is available. To embed icons and metadata at build time:
 
 1. Add `winres` to your `Cargo.toml`:
    ```toml

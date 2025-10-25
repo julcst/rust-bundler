@@ -180,3 +180,41 @@ jobs:
           elif [ "${{ runner.os }}" = "macOS" ]; then
             test -d dist/hello-world-macos.app && echo "✅ macOS bundle created"
           fi
+
+  test-without-metadata:
+    name: Test without metadata/icon on ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build hello-world example
+        run: cargo build --release
+        working-directory: ./examples/hello-world
+        
+      - name: Bundle without metadata or icon (explicit binary name only)
+        uses: ./
+        with:
+          binary-name: hello-world
+          working-directory: './examples/hello-world/target/release'
+          
+      - name: Verify minimal bundle was created
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            test -f dist/hello-world-linux.tar.gz && echo "✅ Linux minimal bundle created"
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            test -f dist/hello-world-windows.zip && echo "✅ Windows minimal bundle created"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            test -d dist/hello-world-macos.app && echo "✅ macOS minimal bundle created"
+          fi

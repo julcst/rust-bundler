@@ -45,6 +45,7 @@ jobs:
         working-directory: ./examples/hello-world
         
       - name: Bundle hello-world application
+        id: bundle
         uses: ./
         with:
           working-directory: examples/hello-world/
@@ -54,33 +55,39 @@ jobs:
       - name: List bundle contents (Linux)
         if: runner.os == 'Linux'
         run: |
+          echo "Bundle created: ${{ steps.bundle.outputs.bundle-name }}"
+          echo "Bundle path: ${{ steps.bundle.outputs.bundle-path }}"
           echo "Bundle contents:"
-          tar -tzf dist/hello-world-linux.tar.gz
+          tar -tzf ${{ steps.bundle.outputs.bundle-path }}
           
       - name: List bundle contents (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          Write-Host "Bundle created: ${{ steps.bundle.outputs.bundle-name }}"
+          Write-Host "Bundle path: ${{ steps.bundle.outputs.bundle-path }}"
           Write-Host "Bundle contents:"
-          Get-Content dist/hello-world-windows.zip -Raw | Out-Null
+          Get-Content ${{ steps.bundle.outputs.bundle-path }} -Raw | Out-Null
           if (Get-Command unzip -ErrorAction SilentlyContinue) {
-            unzip -l dist/hello-world-windows.zip
+            unzip -l ${{ steps.bundle.outputs.bundle-path }}
           } else {
-            Expand-Archive -Path dist/hello-world-windows.zip -DestinationPath dist/extracted -Force
+            Expand-Archive -Path ${{ steps.bundle.outputs.bundle-path }} -DestinationPath dist/extracted -Force
             Get-ChildItem -Recurse dist/extracted
           }
           
       - name: List bundle contents (macOS)
         if: runner.os == 'macOS'
         run: |
+          echo "Bundle created: ${{ steps.bundle.outputs.bundle-name }}"
+          echo "Bundle path: ${{ steps.bundle.outputs.bundle-path }}"
           echo "Bundle contents:"
-          find dist/hello-world-macos.app -type f
+          find ${{ steps.bundle.outputs.bundle-path }} -type f
           
       - name: Extract and test bundle (Linux)
         if: runner.os == 'Linux'
         run: |
           mkdir -p test-extract
-          tar -xzf dist/hello-world-linux.tar.gz -C test-extract
+          tar -xzf ${{ steps.bundle.outputs.bundle-path }} -C test-extract
           cd test-extract
           echo "Checking extracted files:"
           ls -la
@@ -93,7 +100,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path test-extract
-          Expand-Archive -Path dist/hello-world-windows.zip -DestinationPath test-extract -Force
+          Expand-Archive -Path ${{ steps.bundle.outputs.bundle-path }} -DestinationPath test-extract -Force
           Set-Location test-extract
           Write-Host "Checking extracted files:"
           Get-ChildItem -Force
@@ -109,14 +116,14 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           echo "Checking bundle structure:"
-          ls -la dist/hello-world-macos.app/Contents/MacOS/
-          ls -la dist/hello-world-macos.app/Contents/Resources/ || echo "No Resources directory"
+          ls -la ${{ steps.bundle.outputs.bundle-path }}/Contents/MacOS/
+          ls -la ${{ steps.bundle.outputs.bundle-path }}/Contents/Resources/ || echo "No Resources directory"
           echo "Testing .app bundle execution:"
           # Test executing the .app bundle directly
-          open -W -a "$(pwd)/dist/hello-world-macos.app" || true
+          open -W -a "$(pwd)/${{ steps.bundle.outputs.bundle-path }}" || true
           # Also test the binary directly for verification
           echo "Testing direct binary execution:"
-          cd dist/hello-world-macos.app/Contents/MacOS
+          cd ${{ steps.bundle.outputs.bundle-path }}/Contents/MacOS
           ./hello-world
           
       - name: Upload bundle as artifact

@@ -8,10 +8,10 @@ A GitHub Action to automatically bundle Rust binaries for distribution on macOS,
 
 ## Features
 
-- 🪟 **Windows**: Creates `.zip` archives with icon and resource files
+- 🪟 **Windows**: Creates `.zip` archives with icons
 - 🐧 **Linux**: Creates `.tar.gz` archives with `.desktop` files
 - 🍎 **macOS**: Creates `.app` bundles with proper structure and icons
-- 🎨 **Metadata & Icons**: Automatically extracts metadata from `Cargo.toml` and embeds icons
+- 🎨 **Metadata & Icons**: Automatically extracts metadata using `cargo metadata` and embeds icons
 - 🔐 **Code Signing**: Supports macOS code signing
 - 📦 **Flexible**: Include additional files and folders in your bundles
 - 🎯 **Simple**: Easy integration with your existing workflows
@@ -28,9 +28,9 @@ With auto-discovery, you can use the action with minimal configuration:
 ```
 
 The action will automatically:
-- Discover `Cargo.toml` to extract package name and metadata (optional, works without it)
+- Discover `Cargo.toml` in the working directory to extract package metadata using `cargo metadata`
 - Use the package name as the binary name
-- Auto-discover the binary in `target/release` or `target/debug`
+- Auto-discover the binary path from cargo metadata
 - Look for `icon.png` in common locations (optional, works without it)
 - Detect the platform and create the appropriate bundle
 
@@ -241,11 +241,9 @@ For signed macOS releases, add certificate import before bundling:
 ### Windows (ZIP)
 ```
 myapp-windows.zip
-├── myapp.exe
-├── myapp.ico                      # Converted icon (if icon-path provided)
-├── myapp.rc                       # Resource file template (if cargo-toml-path provided)
-├── WINDOWS_RESOURCES_README.txt   # Instructions for embedding resources
-├── README.md
+├── myapp.exe                       # Binary (with embedded metadata if build.rs used)
+├── myapp.ico                       # Converted icon (if icon-path provided)
+├── README.md                       # Additional files (if included)
 └── LICENSE
 ```
 
@@ -253,9 +251,9 @@ myapp-windows.zip
 ```
 myapp-linux.tar.gz
 ├── myapp
-├── myapp.png                      # Icon (if icon-path provided)
-├── myapp.desktop                  # Desktop entry (if cargo-toml-path provided)
-├── README.md
+├── myapp.png                       # Icon (if icon-path provided)
+├── myapp.desktop                   # Desktop entry (if Cargo.toml available)
+├── README.md                       # Additional files (if included)
 └── LICENSE
 ```
 
@@ -263,28 +261,25 @@ myapp-linux.tar.gz
 ```
 myapp-macos.app/
 └── Contents/
-    ├── Info.plist                 # With metadata from Cargo.toml
+    ├── Info.plist                  # With metadata from cargo metadata
     ├── MacOS/
     │   ├── myapp
-    │   ├── README.md
+    │   ├── README.md               # Additional files (if included)
     │   └── LICENSE
     └── Resources/
-        └── AppIcon.icns           # Converted icon (if icon-path provided)
+        └── AppIcon.icns            # Converted icon (if icon-path provided)
 ```
 
 ## Metadata and Icon Support
 
-The bundler can automatically extract metadata from your `Cargo.toml` and embed icons into your application bundles. **Both metadata and icons are completely optional** - the action works fine without them, creating minimal bundles.
+The bundler can automatically extract metadata using `cargo metadata` command and embed icons into your application bundles. **Both metadata and icons are completely optional** - the action works fine without them, creating minimal bundles.
 
-### Auto-Discovery (Optional)
+### Auto-Discovery
 
 The action automatically discovers common files when available:
 
-**Cargo.toml** (optional): Searched in the following locations:
-- `Cargo.toml` (current directory)
-- `./Cargo.toml`
-- `../Cargo.toml`
-- `../../Cargo.toml`
+**Cargo.toml**: Only searched in the working directory root:
+- `Cargo.toml` (in working directory)
 
 **Icon file** (optional): Searched in the following locations:
 - `icon.png` (current directory)
@@ -294,26 +289,28 @@ The action automatically discovers common files when available:
 - `../icon.png`
 - `../assets/icon.png`
 
-**Binary location** (optional): Automatically searched in the following locations relative to `working-directory`:
-- `target/release/{binary-name}` (or `.exe` on Windows)
-- `target/debug/{binary-name}` (or `.exe` on Windows)
-- `./{binary-name}` (or `.exe` on Windows)
+**Binary location**: Automatically determined from `cargo metadata` output:
+- Uses the `target_directory` field from cargo metadata
+- Searches in `target/release` and `target/debug` subdirectories
+- Falls back to manual search if cargo metadata is unavailable
 
-**Binary name**: Automatically extracted from the `name` field in `Cargo.toml` if not explicitly provided.
+**Binary name**: Automatically extracted from the binary target in `Cargo.toml` using `cargo metadata`.
 
-If none of these files are found, the action continues normally and creates a minimal bundle.
+If these files are not found, the action continues normally and creates a minimal bundle.
 
-### Metadata Extraction (Optional)
+### Metadata Extraction
 
-When `Cargo.toml` is found (auto-discovered or explicitly provided), the bundler extracts:
+When `Cargo.toml` is found in the working directory, the bundler uses `cargo metadata` to extract:
 - **Package Name**: Used for display name and binary name (if not provided)
 - **Version**: Embedded in platform-specific metadata
-- **Description**: Used in `.desktop` files (Linux), `Info.plist` (macOS), and resource files (Windows)
-- **Authors**: Used in Windows resource files
+- **Description**: Used in `.desktop` files (Linux) and `Info.plist` (macOS)
+- **Authors**: Used in metadata where applicable
+- **Target Directory**: Used to locate the compiled binary
+- **Binary Name**: Extracted from binary targets
 
-If no `Cargo.toml` is found, bundles are created without metadata.
+If `Cargo.toml` is not found or `cargo metadata` fails, bundles are created without metadata.
 
-### Icon Conversion (Optional)
+### Icon Conversion
 
 When an icon is found (auto-discovered or explicitly provided), PNG format recommended:
 - **Linux**: Copied as-is alongside the `.desktop` file
@@ -324,16 +321,19 @@ If no icon is found, bundles are created without icons.
 
 ### Platform-Specific Notes
 
-#### Windows Resource Embedding (Optional)
-Windows resource files (`.rc`) are included in the bundle for reference when metadata is available. To embed icons and metadata at build time:
+#### Windows Resource Embedding
 
-1. Add `winres` to your `Cargo.toml`:
+On Windows, metadata and icons should be embedded at build time using a build script. This is the recommended approach as it embeds resources directly into the executable before bundling.
+
+**Setup:**
+
+1. Add `winres` to your `Cargo.toml` build dependencies:
    ```toml
    [build-dependencies]
    winres = "0.1"
    ```
 
-2. Create a `build.rs` file:
+2. Create a `build.rs` file in your project root:
    ```rust
    fn main() {
        if cfg!(target_os = "windows") {
@@ -344,7 +344,34 @@ Windows resource files (`.rc`) are included in the bundle for reference when met
    }
    ```
 
-The `winres` crate will automatically read metadata from your `Cargo.toml`.
+3. The `winres` crate automatically reads metadata from your `Cargo.toml` (name, version, description, authors).
+
+4. Place your icon file (`.ico` format) in the project root or convert from PNG using ImageMagick:
+   ```bash
+   convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
+   ```
+
+**Note:** With this approach, the executable will already have embedded metadata and icons when bundled.
+
+#### Including Additional Files
+
+To control which files are included in your source distribution (and available during builds), use the `include` field in `Cargo.toml`:
+
+```toml
+[package]
+name = "myapp"
+include = [
+    "src/**/*",
+    "Cargo.toml",
+    "Cargo.lock",
+    "icon.ico",
+    "build.rs",
+    "README.md",
+    "LICENSE",
+]
+```
+
+This is preferred over using the action's `include-files` parameter for files needed during the build process. The `include-files` parameter is best used for runtime assets that should be bundled with the final application.
 
 #### Linux Desktop Files
 The generated `.desktop` file follows the [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/). Install it to `~/.local/share/applications/` or `/usr/share/applications/` for desktop integration.
@@ -456,10 +483,6 @@ This example is automatically tested on Linux, Windows, and macOS via CI to ensu
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for a list of changes in each version.
 
 ## License
 

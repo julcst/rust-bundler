@@ -39,21 +39,12 @@ auto_discover_binary() {
     return 1
 }
 
-# Function to auto-discover Cargo.toml
-auto_discover_cargo_toml() {
-    local search_paths=(
-        "Cargo.toml"
-        "./Cargo.toml"
-        "../Cargo.toml"
-        "../../Cargo.toml"
-    )
-    
-    for path in "${search_paths[@]}"; do
-        if [ -f "$path" ]; then
-            echo "$path"
-            return 0
-        fi
-    done
+# Function to discover Cargo.toml (only in current directory)
+discover_cargo_toml() {
+    if [ -f "Cargo.toml" ]; then
+        echo "Cargo.toml"
+        return 0
+    fi
     
     return 1
 }
@@ -79,27 +70,59 @@ auto_discover_icon() {
     return 1
 }
 
-# Function to parse Cargo.toml and extract metadata
-parse_cargo_toml() {
-    local cargo_toml_path="$1"
+# Function to extract metadata using cargo metadata command
+extract_cargo_metadata() {
+    local working_dir="$1"
     
-    if [ ! -f "$cargo_toml_path" ]; then
+    # Check if Cargo.toml exists in working directory
+    if [ ! -f "$working_dir/Cargo.toml" ]; then
         return 1
     fi
     
-    # Extract package name
-    CARGO_PKG_NAME=$(grep -m 1 '^name\s*=' "$cargo_toml_path" | sed 's/.*=\s*"\(.*\)".*/\1/' | tr -d ' ')
+    # Check if cargo is available
+    if ! command -v cargo &> /dev/null; then
+        echo "⚠️  cargo command not found, cannot extract metadata"
+        return 1
+    fi
     
-    # Extract version
-    CARGO_PKG_VERSION=$(grep -m 1 '^version\s*=' "$cargo_toml_path" | sed 's/.*=\s*"\(.*\)".*/\1/' | tr -d ' ')
+    # Check if jq is available for JSON parsing
+    if ! command -v jq &> /dev/null; then
+        echo "⚠️  jq command not found, cannot parse cargo metadata"
+        return 1
+    fi
     
-    # Extract description (optional)
-    CARGO_PKG_DESCRIPTION=$(grep -m 1 '^description\s*=' "$cargo_toml_path" | sed 's/.*=\s*"\(.*\)".*/\1/' || echo "")
+    # Run cargo metadata and extract package information
+    local metadata
+    metadata=$(cd "$working_dir" && cargo metadata --no-deps --format-version 1 2>/dev/null)
     
-    # Extract authors (optional, first author only)
-    CARGO_PKG_AUTHORS=$(grep -m 1 '^authors\s*=' "$cargo_toml_path" | sed 's/.*\[\s*"\(.*\)".*/\1/' | sed 's/".*$//' || echo "")
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Failed to run cargo metadata"
+        return 1
+    fi
     
-    export CARGO_PKG_NAME CARGO_PKG_VERSION CARGO_PKG_DESCRIPTION CARGO_PKG_AUTHORS
+    # Extract first package from the workspace
+    local package
+    package=$(echo "$metadata" | jq -r '.packages[0]')
+    
+    if [ "$package" = "null" ] || [ -z "$package" ]; then
+        return 1
+    fi
+    
+    # Extract metadata fields
+    CARGO_PKG_NAME=$(echo "$package" | jq -r '.name')
+    CARGO_PKG_VERSION=$(echo "$package" | jq -r '.version')
+    CARGO_PKG_DESCRIPTION=$(echo "$package" | jq -r '.description // ""')
+    CARGO_PKG_AUTHORS=$(echo "$package" | jq -r '.authors[0] // ""')
+    CARGO_TARGET_DIR=$(echo "$metadata" | jq -r '.target_directory')
+    
+    # Extract binary target information
+    local bin_target
+    bin_target=$(echo "$package" | jq -r '.targets[] | select(.kind[] == "bin") | .name' | head -1)
+    if [ -n "$bin_target" ]; then
+        CARGO_BIN_NAME="$bin_target"
+    fi
+    
+    export CARGO_PKG_NAME CARGO_PKG_VERSION CARGO_PKG_DESCRIPTION CARGO_PKG_AUTHORS CARGO_TARGET_DIR CARGO_BIN_NAME
 }
 
 # Function to convert PNG to ICNS (macOS icon format)
@@ -173,27 +196,41 @@ bundle_application() {
     local icon_path="$9"
     local cargo_toml_path="${10}"
     
-    # Auto-discover Cargo.toml if not provided
+    # Default working directory to current directory if not specified
+    if [ -z "$working_directory" ]; then
+        working_directory="."
+    fi
+    
+    # Auto-discover Cargo.toml if not provided (only in working directory)
     if [ -z "$cargo_toml_path" ]; then
-        if discovered_cargo=$(auto_discover_cargo_toml); then
-            cargo_toml_path="$discovered_cargo"
+        if discovered_cargo=$(cd "$working_directory" && discover_cargo_toml); then
+            cargo_toml_path="$working_directory/$discovered_cargo"
             echo "📋 Auto-discovered Cargo.toml: $cargo_toml_path"
         fi
     fi
     
-    # Parse Cargo.toml if available
+    # Extract metadata using cargo metadata if Cargo.toml is available
     if [ -n "$cargo_toml_path" ] && [ -f "$cargo_toml_path" ]; then
-        echo "📋 Parsing metadata from: $cargo_toml_path"
-        parse_cargo_toml "$cargo_toml_path"
-        echo "  Package: $CARGO_PKG_NAME"
-        echo "  Version: $CARGO_PKG_VERSION"
-        [ -n "$CARGO_PKG_DESCRIPTION" ] && echo "  Description: $CARGO_PKG_DESCRIPTION"
-        [ -n "$CARGO_PKG_AUTHORS" ] && echo "  Author: $CARGO_PKG_AUTHORS"
-        
-        # Auto-discover binary name from Cargo.toml if not provided
-        if [ -z "$binary_name" ] && [ -n "$CARGO_PKG_NAME" ]; then
-            binary_name="$CARGO_PKG_NAME"
-            echo "🔍 Auto-discovered binary name from Cargo.toml: $binary_name"
+        echo "📋 Extracting metadata using cargo metadata from: $working_directory"
+        if extract_cargo_metadata "$working_directory"; then
+            echo "  Package: $CARGO_PKG_NAME"
+            echo "  Version: $CARGO_PKG_VERSION"
+            [ -n "$CARGO_PKG_DESCRIPTION" ] && echo "  Description: $CARGO_PKG_DESCRIPTION"
+            [ -n "$CARGO_PKG_AUTHORS" ] && echo "  Author: $CARGO_PKG_AUTHORS"
+            [ -n "$CARGO_TARGET_DIR" ] && echo "  Target directory: $CARGO_TARGET_DIR"
+            
+            # Auto-discover binary name from cargo metadata if not provided
+            if [ -z "$binary_name" ]; then
+                if [ -n "$CARGO_BIN_NAME" ]; then
+                    binary_name="$CARGO_BIN_NAME"
+                    echo "🔍 Auto-discovered binary name from cargo metadata: $binary_name"
+                elif [ -n "$CARGO_PKG_NAME" ]; then
+                    binary_name="$CARGO_PKG_NAME"
+                    echo "🔍 Using package name as binary name: $binary_name"
+                fi
+            fi
+        else
+            echo "⚠️  Failed to extract metadata with cargo metadata, continuing without metadata"
         fi
     fi
     
@@ -217,25 +254,41 @@ bundle_application() {
         output_name="$binary_name"
     fi
     
-    # Default working directory to current directory if not specified
-    if [ -z "$working_directory" ]; then
-        working_directory="."
-    fi
-    
     # Detect OS
     OS=$(uname -s)
     
     echo "🎯 Bundling $binary_name for $OS"
     echo "📂 Working directory: $working_directory"
     
-    # Auto-discover binary location if not explicitly in working_directory
+    # Auto-discover binary location
     local binary_path=""
     local binary_dir="$working_directory"
     
-    # First, try to auto-discover the binary location
-    if discovered_dir=$(auto_discover_binary "$binary_name" "$working_directory"); then
-        binary_dir="$discovered_dir"
-        echo "🔍 Auto-discovered binary in: $binary_dir"
+    # If we have CARGO_TARGET_DIR from metadata, use it first
+    if [ -n "$CARGO_TARGET_DIR" ]; then
+        echo "🔍 Using target directory from cargo metadata: $CARGO_TARGET_DIR"
+        # Try to find binary in cargo target directory
+        if [ "$OS" = "Darwin" ] || [ "$OS" = "Linux" ]; then
+            if [ -f "$CARGO_TARGET_DIR/release/$binary_name" ]; then
+                binary_dir="$CARGO_TARGET_DIR/release"
+            elif [ -f "$CARGO_TARGET_DIR/debug/$binary_name" ]; then
+                binary_dir="$CARGO_TARGET_DIR/debug"
+            fi
+        elif [ "$OS" = "MINGW64_NT" ] || [ "$OS" = "MSYS_NT" ] || [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; then
+            if [ -f "$CARGO_TARGET_DIR/release/${binary_name}.exe" ]; then
+                binary_dir="$CARGO_TARGET_DIR/release"
+            elif [ -f "$CARGO_TARGET_DIR/debug/${binary_name}.exe" ]; then
+                binary_dir="$CARGO_TARGET_DIR/debug"
+            fi
+        fi
+    fi
+    
+    # Fallback to auto-discovery if not found yet
+    if [ "$binary_dir" = "$working_directory" ]; then
+        if discovered_dir=$(auto_discover_binary "$binary_name" "$working_directory"); then
+            binary_dir="$discovered_dir"
+            echo "🔍 Auto-discovered binary in: $binary_dir"
+        fi
     fi
     
     # Check if binary exists
@@ -381,97 +434,6 @@ bundle_windows() {
             echo "  📄 Including original PNG icon"
             cp "$icon_path" "$temp_dir/${binary_name}.png"
         fi
-    fi
-    
-    # Generate resource files if we have metadata
-    if [ -n "$cargo_toml_path" ] && [ -f "$cargo_toml_path" ]; then
-        echo "  📄 Generating Windows resource files (.rc)"
-        local version="${CARGO_PKG_VERSION:-1.0.0}"
-        local description="${CARGO_PKG_DESCRIPTION:-$binary_name}"
-        local company="${CARGO_PKG_AUTHORS:-}"
-        local product_name="${CARGO_PKG_NAME:-$binary_name}"
-        
-        # Convert version to Windows format (e.g., 1.0.0 -> 1,0,0,0)
-        local version_comma=$(echo "$version" | sed 's/\./, /g')
-        # Ensure we have 4 version components
-        local version_parts=$(echo "$version_comma" | tr ',' '\n' | wc -l)
-        while [ "$version_parts" -lt 4 ]; do
-            version_comma="$version_comma, 0"
-            version_parts=$((version_parts + 1))
-        done
-        
-        # Create a .rc file template
-        cat > "$temp_dir/${binary_name}.rc" <<EOF
-#include <windows.h>
-
-// Icon
-IDI_ICON1 ICON "${binary_name}.ico"
-
-// Version Information
-VS_VERSION_INFO VERSIONINFO
- FILEVERSION ${version_comma}
- PRODUCTVERSION ${version_comma}
- FILEFLAGSMASK 0x3fL
- FILEFLAGS 0x0L
- FILEOS VOS_NT_WINDOWS32
- FILETYPE VFT_APP
- FILESUBTYPE 0x0L
-BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "040904b0"
-        BEGIN
-            VALUE "CompanyName", "${company}"
-            VALUE "FileDescription", "${description}"
-            VALUE "FileVersion", "${version}"
-            VALUE "InternalName", "${binary_name}"
-            VALUE "LegalCopyright", "Copyright"
-            VALUE "OriginalFilename", "${binary_name}.exe"
-            VALUE "ProductName", "${product_name}"
-            VALUE "ProductVersion", "${version}"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x409, 1200
-    END
-END
-EOF
-
-        # Create a README explaining how to use the .rc file
-        cat > "$temp_dir/WINDOWS_RESOURCES_README.txt" <<EOF
-Windows Resource Files
-======================
-
-This bundle includes Windows resource files (.rc) that can be used to embed
-metadata and icons into your executable at build time.
-
-To use these resources:
-
-1. Copy ${binary_name}.rc to your project root
-2. If you have an icon, copy ${binary_name}.ico to your project root
-3. Add winres to your Cargo.toml build dependencies:
-
-   [build-dependencies]
-   winres = "0.1"
-
-4. Create a build.rs file in your project root:
-
-   fn main() {
-       if cfg!(target_os = "windows") {
-           let mut res = winres::WindowsResource::new();
-           res.set_icon("${binary_name}.ico");
-           res.compile().unwrap();
-       }
-   }
-
-5. Rebuild your project
-
-Note: The .rc file provided is for reference. The winres crate will handle
-most of the metadata automatically from your Cargo.toml.
-
-For more information, see: https://docs.rs/winres/
-EOF
     fi
     
     # Copy additional files (relative to working_directory)

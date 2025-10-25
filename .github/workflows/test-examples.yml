@@ -9,6 +9,11 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: true
+  RUSTC_WRAPPER: sccache
+
 jobs:
   test-hello-world:
     name: Test hello-world example on ${{ matrix.os }}
@@ -22,15 +27,19 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          
+          workspaces: examples/hello-world
+      
       - name: Build hello-world example
         run: cargo build --release
         working-directory: ./examples/hello-world
@@ -38,9 +47,9 @@ jobs:
       - name: Bundle hello-world application
         uses: ./
         with:
+          working-directory: examples/hello-world/
           binary-name: hello-world
-          include-files: 'examples/hello-world/assets/'
-          working-directory: './examples/hello-world/target/release'
+          include-files: assets/
           
       - name: List bundle contents (Linux)
         if: runner.os == 'Linux'
@@ -101,7 +110,12 @@ jobs:
         run: |
           echo "Checking bundle structure:"
           ls -la dist/hello-world-macos.app/Contents/MacOS/
-          echo "Running hello-world binary:"
+          ls -la dist/hello-world-macos.app/Contents/Resources/ || echo "No Resources directory"
+          echo "Testing .app bundle execution:"
+          # Test executing the .app bundle directly
+          open -W -a "$(pwd)/dist/hello-world-macos.app" || true
+          # Also test the binary directly for verification
+          echo "Testing direct binary execution:"
           cd dist/hello-world-macos.app/Contents/MacOS
           ./hello-world
           

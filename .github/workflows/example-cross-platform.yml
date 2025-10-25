@@ -1,4 +1,4 @@
-name: Example - Cross-Platform Matrix Build
+name: Example - Cross-Platform Release
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 jobs:
-  build-matrix:
+  build-release:
     name: Build for ${{ matrix.platform }}
     permissions:
       contents: write
@@ -37,14 +37,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          profile: minimal
-          override: true
-          
+          targets: ${{ matrix.target }}
+      
+      - name: Setup sccache (optional)
+        uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      
+      - name: Configure sccache
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
         
@@ -55,6 +68,8 @@ jobs:
           output-name: myapp-${{ matrix.platform }}
           include-files: 'README.md LICENSE'
           working-directory: './target/${{ matrix.target }}/release'
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
           
       - name: Upload bundle as artifact
         uses: actions/upload-artifact@v4
@@ -64,7 +79,7 @@ jobs:
           
       - name: Upload to release (if tagged)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/*
         env:

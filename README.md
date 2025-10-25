@@ -8,16 +8,51 @@ A GitHub Action to automatically bundle Rust binaries for distribution on macOS,
 
 ## Features
 
-- 🪟 **Windows**: Creates `.zip` archives
-- 🐧 **Linux**: Creates `.tar.gz` archives  
-- 🍎 **macOS**: Creates `.app` bundles with proper structure
+- 🪟 **Windows**: Creates `.zip` archives with icon and resource files
+- 🐧 **Linux**: Creates `.tar.gz` archives with `.desktop` files
+- 🍎 **macOS**: Creates `.app` bundles with proper structure and icons
+- 🎨 **Metadata & Icons**: Automatically extracts metadata from `Cargo.toml` and embeds icons
 - 🔐 **Code Signing**: Supports macOS code signing
 - 📦 **Flexible**: Include additional files and folders in your bundles
 - 🎯 **Simple**: Easy integration with your existing workflows
 
 ## Quick Start
 
-Add this to your GitHub Actions workflow after building your Rust project:
+### Minimal Configuration
+
+With auto-discovery, you can use the action with minimal configuration:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+```
+
+The action will automatically:
+- Discover `Cargo.toml` to extract package name and metadata (optional, works without it)
+- Use the package name as the binary name
+- Auto-discover the binary in `target/release` or `target/debug`
+- Look for `icon.png` in common locations (optional, works without it)
+- Detect the platform and create the appropriate bundle
+
+**Note:** Metadata and icons are always optional. The action works fine without them, creating minimal bundles containing just the binary and any included files.
+
+### Typical Usage (Recommended)
+
+Point to your project root and let auto-discovery do the rest:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    working-directory: examples/my-app  # Your project root
+    include-files: 'assets/ README.md LICENSE'
+```
+
+The binary will be auto-discovered in `target/release` or `target/debug`.
+
+### With Only Binary Name
+
+If auto-discovery doesn't work or you don't have Cargo.toml:
 
 ```yaml
 - name: Bundle Application
@@ -26,11 +61,24 @@ Add this to your GitHub Actions workflow after building your Rust project:
     binary-name: your-app-name
 ```
 
-That's it! The action will automatically detect the platform and create the appropriate bundle in the `dist/` directory.
+### Explicit Configuration
+
+You can also specify everything explicitly:
+
+```yaml
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    binary-name: your-app-name
+    icon-path: 'icon.png'
+    cargo-toml-path: 'Cargo.toml'
+```
+
+The action automatically detects the platform and creates the appropriate bundle in the `dist/` directory with embedded metadata and icons.
 
 ## Usage
 
-### Basic Example
+### Complete Example with Caching
 
 ```yaml
 name: Release
@@ -50,10 +98,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Setup sccache (optional)
+        uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Configure sccache
+        continue-on-error: true
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+        shell: bash
           
       - name: Build
         run: cargo build --release
@@ -62,6 +122,8 @@ jobs:
         uses: julcst/rust-bundler@v1
         with:
           binary-name: myapp
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
           
       - name: Upload Bundle
         uses: actions/upload-artifact@v4
@@ -70,60 +132,98 @@ jobs:
           path: dist/*
 ```
 
-### Advanced Example with Additional Files
+### Cross-Platform Release Example
 
 ```yaml
-      - name: Bundle with Additional Files
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Setup sccache (optional)
+        uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
+      
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          RUSTC_WRAPPER: sccache
+        
+      - name: Bundle
         uses: julcst/rust-bundler@v1
         with:
           binary-name: myapp
-          output-name: MyApplication
-          include-files: 'README.md LICENSE config.json assets/'
-          working-directory: './target/release'
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
+          include-files: 'README.md LICENSE'
+          working-directory: './target/${{ matrix.target }}/release'
+          
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
 ```
 
-### macOS Code Signing Example
+### macOS Code Signing
+
+For signed macOS releases, add certificate import before bundling:
 
 ```yaml
       - name: Import Code Signing Certificate
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
           p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
           
-      - name: Bundle and Sign for macOS
-        if: matrix.os == 'macos-latest'
+      - name: Bundle and Sign
+        if: runner.os == 'macOS'
         uses: julcst/rust-bundler@v1
         with:
           binary-name: myapp
-          output-name: MyApplication
           macos-sign: true
-          macos-sign-identity: "Developer ID Application: Your Name (YOUR_TEAM_ID)"
+          macos-sign-identity: "Developer ID Application: Your Name (TEAM_ID)"
           macos-bundle-id: com.example.myapp
-          macos-app-name: "My Application"
-          include-files: 'README.md LICENSE'
-```
-
-### Publishing to GitHub Releases
-
-```yaml
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          icon-path: 'icon.png'
+          cargo-toml-path: 'Cargo.toml'
 ```
 
 ## Inputs
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `binary-name` | Name of the binary to bundle (without extension) | Yes | - |
+| `binary-name` | Name of the binary to bundle (without extension). Auto-discovered from Cargo.toml if not provided. | No | Auto-discovered |
 | `include-files` | Space-separated list of files or folders to include | No | `""` |
 | `output-name` | Name of the output bundle (without extension) | No | Same as `binary-name` |
-| `working-directory` | Directory containing the binary | No | `./target/release` |
+| `working-directory` | Working directory (project root). Binary auto-discovered in target/release or target/debug. | No | `.` |
+| `icon-path` | Path to icon file (PNG format, will be converted per platform). Auto-discovered if not provided. | No | Auto-discovered |
+| `cargo-toml-path` | Path to Cargo.toml for extracting metadata. Auto-discovered if not provided. | No | Auto-discovered |
 | `macos-sign` | Enable macOS code signing | No | `false` |
 | `macos-sign-identity` | macOS code signing identity | No | `""` |
 | `macos-bundle-id` | macOS bundle identifier | No | `com.example.{binary-name}` |
@@ -142,6 +242,9 @@ jobs:
 ```
 myapp-windows.zip
 ├── myapp.exe
+├── myapp.ico                      # Converted icon (if icon-path provided)
+├── myapp.rc                       # Resource file template (if cargo-toml-path provided)
+├── WINDOWS_RESOURCES_README.txt   # Instructions for embedding resources
 ├── README.md
 └── LICENSE
 ```
@@ -150,6 +253,8 @@ myapp-windows.zip
 ```
 myapp-linux.tar.gz
 ├── myapp
+├── myapp.png                      # Icon (if icon-path provided)
+├── myapp.desktop                  # Desktop entry (if cargo-toml-path provided)
 ├── README.md
 └── LICENSE
 ```
@@ -158,19 +263,107 @@ myapp-linux.tar.gz
 ```
 myapp-macos.app/
 └── Contents/
-    ├── Info.plist
+    ├── Info.plist                 # With metadata from Cargo.toml
     ├── MacOS/
     │   ├── myapp
     │   ├── README.md
     │   └── LICENSE
     └── Resources/
+        └── AppIcon.icns           # Converted icon (if icon-path provided)
 ```
+
+## Metadata and Icon Support
+
+The bundler can automatically extract metadata from your `Cargo.toml` and embed icons into your application bundles. **Both metadata and icons are completely optional** - the action works fine without them, creating minimal bundles.
+
+### Auto-Discovery (Optional)
+
+The action automatically discovers common files when available:
+
+**Cargo.toml** (optional): Searched in the following locations:
+- `Cargo.toml` (current directory)
+- `./Cargo.toml`
+- `../Cargo.toml`
+- `../../Cargo.toml`
+
+**Icon file** (optional): Searched in the following locations:
+- `icon.png` (current directory)
+- `./icon.png`
+- `assets/icon.png`
+- `resources/icon.png`
+- `../icon.png`
+- `../assets/icon.png`
+
+**Binary location** (optional): Automatically searched in the following locations relative to `working-directory`:
+- `target/release/{binary-name}` (or `.exe` on Windows)
+- `target/debug/{binary-name}` (or `.exe` on Windows)
+- `./{binary-name}` (or `.exe` on Windows)
+
+**Binary name**: Automatically extracted from the `name` field in `Cargo.toml` if not explicitly provided.
+
+If none of these files are found, the action continues normally and creates a minimal bundle.
+
+### Metadata Extraction (Optional)
+
+When `Cargo.toml` is found (auto-discovered or explicitly provided), the bundler extracts:
+- **Package Name**: Used for display name and binary name (if not provided)
+- **Version**: Embedded in platform-specific metadata
+- **Description**: Used in `.desktop` files (Linux), `Info.plist` (macOS), and resource files (Windows)
+- **Authors**: Used in Windows resource files
+
+If no `Cargo.toml` is found, bundles are created without metadata.
+
+### Icon Conversion (Optional)
+
+When an icon is found (auto-discovered or explicitly provided), PNG format recommended:
+- **Linux**: Copied as-is alongside the `.desktop` file
+- **macOS**: Automatically converted to `.icns` format using `sips` and `iconutil` (falls back to PNG if tools unavailable)
+- **Windows**: Automatically converted to `.ico` format using ImageMagick or `icotool` (falls back to PNG if tools unavailable)
+
+If no icon is found, bundles are created without icons.
+
+### Platform-Specific Notes
+
+#### Windows Resource Embedding (Optional)
+Windows resource files (`.rc`) are included in the bundle for reference when metadata is available. To embed icons and metadata at build time:
+
+1. Add `winres` to your `Cargo.toml`:
+   ```toml
+   [build-dependencies]
+   winres = "0.1"
+   ```
+
+2. Create a `build.rs` file:
+   ```rust
+   fn main() {
+       if cfg!(target_os = "windows") {
+           let mut res = winres::WindowsResource::new();
+           res.set_icon("icon.ico");
+           res.compile().unwrap();
+       }
+   }
+   ```
+
+The `winres` crate will automatically read metadata from your `Cargo.toml`.
+
+#### Linux Desktop Files
+The generated `.desktop` file follows the [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/). Install it to `~/.local/share/applications/` or `/usr/share/applications/` for desktop integration.
+
+#### macOS Icons
+Icon conversion requires macOS-specific tools (`sips` and `iconutil`), which are included with macOS. When these tools are not available (e.g., on non-macOS runners), the original PNG will be included in the Resources directory as a fallback.
+
+#### macOS Code Signing
+All macOS `.app` bundles are automatically signed with an ad-hoc signature (using `codesign --sign -`) to prevent "damaged" errors on modern macOS and Apple Silicon. This allows the app to run locally without full code signing. For distribution, use the `macos-sign` option with a proper Developer ID certificate.
 
 ## Requirements
 
 - The binary must be built before running this action (e.g., with `cargo build --release`)
 - For macOS code signing, proper certificates must be imported into the keychain first
 - For Windows ZIP creation on non-Windows runners, the `zip` utility must be available
+- For optimal icon conversion:
+  - **macOS**: `sips` and `iconutil` (included with macOS, falls back to PNG if unavailable)
+  - **Windows**: ImageMagick or `icotool` (optional, falls back to PNG if unavailable)
+  - **Linux**: No conversion needed (uses PNG directly)
 
 ## Troubleshooting
 
@@ -196,6 +389,13 @@ If code signing fails:
   - Replace "YOUR_TEAM_ID" with your Apple Team ID (10 characters)
 - Check that the bundle ID is in reverse domain notation (e.g., com.example.app)
 - Verify the certificate is valid and not expired
+
+### macOS "Damaged" or "Can't be opened" Error
+
+If macOS reports the app is damaged or can't be opened:
+- The bundler automatically applies ad-hoc code signing to prevent this issue
+- If you still see this error after downloading, run: `xattr -cr path/to/app.app` to remove quarantine attributes
+- For distribution to other users, use proper code signing with `macos-sign: true` and a Developer ID certificate
 
 ### Files Not Included
 

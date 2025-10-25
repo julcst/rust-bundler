@@ -7,8 +7,9 @@ branding:
 
 inputs:
   binary-name:
-    description: 'Name of the binary to bundle (without extension)'
-    required: true
+    description: 'Name of the binary to bundle (without extension). Auto-discovered from Cargo.toml if not provided.'
+    required: false
+    default: ''
   include-files:
     description: 'Space-separated list of files or folders to include in the bundle'
     required: false
@@ -18,9 +19,9 @@ inputs:
     required: false
     default: ''
   working-directory:
-    description: 'Directory containing the binary to bundle'
+    description: 'Working directory (project root). Binary will be auto-discovered in target/release or target/debug.'
     required: false
-    default: './target/release'
+    default: '.'
   macos-sign:
     description: 'Enable macOS code signing (requires proper keychain setup)'
     required: false
@@ -35,6 +36,14 @@ inputs:
     default: ''
   macos-app-name:
     description: 'macOS application display name'
+    required: false
+    default: ''
+  icon-path:
+    description: 'Path to icon file (PNG format recommended, will be converted for each platform)'
+    required: false
+    default: ''
+  cargo-toml-path:
+    description: 'Path to Cargo.toml for extracting metadata (name, version, description, authors)'
     required: false
     default: ''
 
@@ -67,4 +76,6 @@ runs:
           "${{ inputs.macos-sign }}" \
           "${{ inputs.macos-sign-identity }}" \
           "${{ inputs.macos-bundle-id }}" \
-          "${{ inputs.macos-app-name }}"
+          "${{ inputs.macos-app-name }}" \
+          "${{ inputs.icon-path }}" \
+          "${{ inputs.cargo-toml-path }}"

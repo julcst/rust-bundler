@@ -31,7 +31,7 @@ auto_discover_binary() {
         local full_path="$working_dir/$path"
         if [ -f "$full_path" ]; then
             # Return the directory containing the binary
-            echo "$(dirname "$full_path")"
+            dirname "$full_path"
             return 0
         fi
     done
@@ -79,9 +79,7 @@ extract_cargo_metadata() {
     # Run cargo metadata and extract package information
     # cargo metadata will fail if there's no Cargo.toml, so we don't need to check explicitly
     local metadata
-    metadata=$(cd "$working_dir" && cargo metadata --no-deps --format-version 1 2>/dev/null)
-    
-    if [ $? -ne 0 ]; then
+    if ! metadata=$(cd "$working_dir" && cargo metadata --no-deps --format-version 1 2>/dev/null); then
         return 1
     fi
     
@@ -131,7 +129,8 @@ convert_png_to_icns() {
     
     # Check if sips is available (macOS)
     if command -v sips &> /dev/null; then
-        local iconset_dir=$(mktemp -d)
+        local iconset_dir
+        iconset_dir=$(mktemp -d)
         local iconset="${iconset_dir}/icon.iconset"
         mkdir -p "$iconset"
         
@@ -344,7 +343,8 @@ bundle_linux() {
     local working_directory="$7"
     
     local bundle_name="${output_name}-linux.tar.gz"
-    local temp_dir=$(mktemp -d)
+    local temp_dir
+    temp_dir=$(mktemp -d)
     
     echo "📦 Creating Linux tar.gz bundle: $bundle_name"
     
@@ -401,8 +401,8 @@ EOF
     rm -rf "$temp_dir"
     
     echo "✅ Bundle created: dist/$bundle_name"
-    echo "bundle-path=dist/$bundle_name" >> $GITHUB_OUTPUT
-    echo "bundle-name=$bundle_name" >> $GITHUB_OUTPUT
+    echo "bundle-path=dist/$bundle_name" >> "$GITHUB_OUTPUT"
+    echo "bundle-name=$bundle_name" >> "$GITHUB_OUTPUT"
 }
 
 bundle_windows() {
@@ -415,7 +415,8 @@ bundle_windows() {
     local working_directory="$7"
     
     local bundle_name="${output_name}-windows.zip"
-    local temp_dir=$(mktemp -d)
+    local temp_dir
+    temp_dir=$(mktemp -d)
     
     echo "📦 Creating Windows zip bundle: $bundle_name"
     
@@ -439,7 +440,8 @@ bundle_windows() {
     
     # Create zip (using PowerShell on Windows or zip command on Unix)
     if command -v zip &> /dev/null; then
-        local output_path="$(pwd)/dist/$bundle_name"
+        local output_path
+        output_path="$(pwd)/dist/$bundle_name"
         (cd "$temp_dir" && zip -r "$output_path" .)
     elif command -v pwsh &> /dev/null; then
         # Create zip in temp location, then move it (avoids path translation issues)
@@ -461,8 +463,8 @@ bundle_windows() {
     rm -rf "$temp_dir"
     
     echo "✅ Bundle created: dist/$bundle_name"
-    echo "bundle-path=dist/$bundle_name" >> $GITHUB_OUTPUT
-    echo "bundle-name=$bundle_name" >> $GITHUB_OUTPUT
+    echo "bundle-path=dist/$bundle_name" >> "$GITHUB_OUTPUT"
+    echo "bundle-name=$bundle_name" >> "$GITHUB_OUTPUT"
 }
 
 bundle_macos() {
@@ -600,8 +602,8 @@ EOF
     fi
     
     echo "✅ Bundle created: $app_dir"
-    echo "bundle-path=$app_dir" >> $GITHUB_OUTPUT
-    echo "bundle-name=$bundle_name" >> $GITHUB_OUTPUT
+    echo "bundle-path=$app_dir" >> "$GITHUB_OUTPUT"
+    echo "bundle-name=$bundle_name" >> "$GITHUB_OUTPUT"
 }
 
 bundle_macos_with_signing() {

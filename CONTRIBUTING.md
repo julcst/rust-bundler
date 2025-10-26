@@ -20,8 +20,10 @@ bundle_application \
   "hello-world" \
   "examples/hello-world/assets/" \
   "" \
-  "./examples/hello-world/target/release" \
+  "./examples/hello-world" \
   "false" \
+  "" \
+  "" \
   "" \
   "" \
   ""
@@ -40,12 +42,17 @@ To test with your own binary, use the bundling script directly:
 source scripts/bundle.sh
 
 # Call the bundling function
+# Parameters: binary-name, include-files, output-name, working-directory,
+#             macos-sign, macos-sign-identity, macos-bundle-id, macos-app-name,
+#             icon-path, cargo-toml-path
 bundle_application \
   "your-binary-name" \
   "file1.txt file2.txt folder/" \
   "output-name" \
-  "./target/release" \
+  "." \
   "false" \
+  "" \
+  "" \
   "" \
   "" \
   ""

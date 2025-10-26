@@ -38,15 +38,15 @@ After building, you can run the application:
 
 The `build.rs` file embeds icons and metadata into Windows executables at build time using the `winres` crate.
 
-The project includes `winres = "0.1"` in `[build-dependencies]`, which automatically reads metadata from `Cargo.toml` (name, version, description, authors) and embeds it into the Windows executable.
+The project includes:
+- `winres = "0.1"` in `[build-dependencies]`, which automatically reads metadata from `Cargo.toml` (name, version, description, authors) and embeds it into the Windows executable.
+- `ico-builder = "0.1"` in `[build-dependencies]`, which automatically generates `icon.ico` from `icon.png` during the build process.
 
-To add an icon:
-1. Convert the PNG icon to ICO format:
-   ```bash
-   convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
-   ```
+The build script will automatically:
+1. Convert `icon.png` to `icon.ico` format if needed (or if the PNG has been updated)
+2. Embed the ICO file into the Windows executable
 
-2. Rebuild the project - the `build.rs` will automatically detect and use `icon.ico` if it exists
+No manual icon conversion is required - just provide an `icon.png` file and the build script handles the rest.
 
 ## Metadata
 

@@ -102,7 +102,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Setup sccache (optional)
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.9
         continue-on-error: true
       
       - name: Setup Rust cache
@@ -164,7 +164,7 @@ jobs:
           targets: ${{ matrix.target }}
       
       - name: Setup sccache (optional)
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.9
         continue-on-error: true
       
       - name: Setup Rust cache
@@ -326,18 +326,35 @@ On Windows, metadata and icons should be embedded at build time using a build sc
 
 **Setup:**
 
-1. Add `winres` to your `Cargo.toml` build dependencies:
+1. Add `winres` and `ico-builder` to your `Cargo.toml` build dependencies:
    ```toml
    [build-dependencies]
    winres = "0.1"
+   ico-builder = "0.1"
    ```
 
 2. Create a `build.rs` file in your project root:
    ```rust
    fn main() {
-       if cfg!(target_os = "windows") {
+       #[cfg(target_os = "windows")]
+       {
+           use std::path::Path;
+
+           // Automatically generate icon.ico from icon.png
+           let png_path = Path::new("icon.png");
+           let ico_path = Path::new("icon.ico");
+
+           if png_path.exists() && !ico_path.exists() {
+               if let Err(e) = ico_builder::build_ico_from_png(png_path, ico_path) {
+                   println!("cargo:warning=Failed to generate icon.ico: {}", e);
+               }
+           }
+
+           // Embed icon and metadata
            let mut res = winres::WindowsResource::new();
-           res.set_icon("icon.ico");
+           if ico_path.exists() {
+               res.set_icon("icon.ico");
+           }
            res.compile().unwrap();
        }
    }
@@ -345,12 +362,9 @@ On Windows, metadata and icons should be embedded at build time using a build sc
 
 3. The `winres` crate automatically reads metadata from your `Cargo.toml` (name, version, description, authors).
 
-4. Place your icon file (`.ico` format) in the project root or convert from PNG using ImageMagick:
-   ```bash
-   convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
-   ```
+4. Place your `icon.png` file in the project root. The build script will automatically convert it to `.ico` format.
 
-**Note:** With this approach, the executable will already have embedded metadata and icons when bundled.
+**Note:** With this approach, the executable will already have embedded metadata and icons when bundled. No manual icon conversion is required.
 
 #### Including Additional Files
 

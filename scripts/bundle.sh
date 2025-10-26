@@ -2,6 +2,25 @@
 
 set -e
 
+# Function to convert profile name to directory name
+# Handles historical naming: dev/test -> debug, release/bench -> release
+profile_to_dir() {
+    local profile="$1"
+    
+    case "$profile" in
+        dev|test)
+            echo "debug"
+            ;;
+        release|bench)
+            echo "release"
+            ;;
+        *)
+            # Custom profiles use their own name
+            echo "$profile"
+            ;;
+    esac
+}
+
 # Function to auto-discover binary location
 auto_discover_binary() {
     local binary_name="$1"
@@ -199,10 +218,17 @@ bundle_application() {
     local macos_app_name="$8"
     local icon_path="$9"
     local cargo_toml_path="${10}"
+    local profile="${11}"
+    local target="${12}"
     
     # Default working directory to current directory if not specified
     if [ -z "$working_directory" ]; then
         working_directory="."
+    fi
+    
+    # Default profile to release if not specified
+    if [ -z "$profile" ]; then
+        profile="release"
     fi
     
     # Extract metadata using cargo metadata
@@ -253,32 +279,54 @@ bundle_application() {
     
     echo "🎯 Bundling $binary_name for $OS"
     echo "📂 Working directory: $working_directory"
+    echo "📦 Profile: $profile"
+    if [ -n "$target" ]; then
+        echo "🎯 Target triple: $target"
+    fi
+    
+    # Convert profile name to directory name (handles historical naming)
+    local profile_dir
+    profile_dir=$(profile_to_dir "$profile")
     
     # Auto-discover binary location
     local binary_path=""
-    local binary_dir="$working_directory"
+    local binary_dir=""
     
-    # If we have CARGO_TARGET_DIR from metadata, use it first
+    # Build the search path based on cargo metadata
     if [ -n "$CARGO_TARGET_DIR" ]; then
         echo "🔍 Using target directory from cargo metadata: $CARGO_TARGET_DIR"
-        # Try to find binary in cargo target directory
-        if [ "$OS" = "Darwin" ] || [ "$OS" = "Linux" ]; then
-            if [ -f "$CARGO_TARGET_DIR/release/$binary_name" ]; then
-                binary_dir="$CARGO_TARGET_DIR/release"
-            elif [ -f "$CARGO_TARGET_DIR/debug/$binary_name" ]; then
-                binary_dir="$CARGO_TARGET_DIR/debug"
-            fi
-        elif [ "$OS" = "MINGW64_NT" ] || [ "$OS" = "MSYS_NT" ] || [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; then
-            if [ -f "$CARGO_TARGET_DIR/release/${binary_name}.exe" ]; then
-                binary_dir="$CARGO_TARGET_DIR/release"
-            elif [ -f "$CARGO_TARGET_DIR/debug/${binary_name}.exe" ]; then
-                binary_dir="$CARGO_TARGET_DIR/debug"
-            fi
+        
+        # Construct the binary path based on whether target triple is specified
+        if [ -n "$target" ]; then
+            # When target is specified: target/<triple>/<profile-dir>/
+            binary_dir="$CARGO_TARGET_DIR/$target/$profile_dir"
+        else
+            # When no target specified: target/<profile-dir>/
+            binary_dir="$CARGO_TARGET_DIR/$profile_dir"
+        fi
+        
+        echo "🔍 Looking for binary in: $binary_dir"
+    else
+        # Fallback to working directory if no cargo metadata
+        echo "⚠️  No cargo metadata target directory, falling back to working directory"
+        binary_dir="$working_directory"
+    fi
+    
+    # Verify the binary exists, fall back to auto-discovery if needed
+    local binary_exists=false
+    if [ "$OS" = "Darwin" ] || [ "$OS" = "Linux" ]; then
+        if [ -f "$binary_dir/$binary_name" ]; then
+            binary_exists=true
+        fi
+    elif [ "$OS" = "MINGW64_NT" ] || [ "$OS" = "MSYS_NT" ] || [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; then
+        if [ -f "$binary_dir/${binary_name}.exe" ]; then
+            binary_exists=true
         fi
     fi
     
-    # Fallback to auto-discovery if not found yet
-    if [ "$binary_dir" = "$working_directory" ]; then
+    # Fallback to auto-discovery if binary not found in expected location
+    if [ "$binary_exists" = false ]; then
+        echo "⚠️  Binary not found at expected location: $binary_dir"
         if discovered_dir=$(auto_discover_binary "$binary_name" "$working_directory"); then
             binary_dir="$discovered_dir"
             echo "🔍 Auto-discovered binary in: $binary_dir"
@@ -298,7 +346,8 @@ bundle_application() {
     
     if [ ! -f "$binary_path" ]; then
         echo "❌ Binary not found at: $binary_path"
-        echo "   Searched in common build directories (target/release, target/debug)"
+        echo "   Expected location: $binary_dir"
+        echo "   Make sure to build your binary before bundling (e.g., cargo build --release)"
         exit 1
     fi
     

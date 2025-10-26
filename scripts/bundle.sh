@@ -39,16 +39,6 @@ auto_discover_binary() {
     return 1
 }
 
-# Function to discover Cargo.toml (only in current directory)
-discover_cargo_toml() {
-    if [ -f "Cargo.toml" ]; then
-        echo "Cargo.toml"
-        return 0
-    fi
-    
-    return 1
-}
-
 # Function to auto-discover icon file
 auto_discover_icon() {
     local search_paths=(
@@ -74,11 +64,6 @@ auto_discover_icon() {
 extract_cargo_metadata() {
     local working_dir="$1"
     
-    # Check if Cargo.toml exists in working directory
-    if [ ! -f "$working_dir/Cargo.toml" ]; then
-        return 1
-    fi
-    
     # Check if cargo is available
     if ! command -v cargo &> /dev/null; then
         echo "⚠️  cargo command not found, cannot extract metadata"
@@ -92,11 +77,11 @@ extract_cargo_metadata() {
     fi
     
     # Run cargo metadata and extract package information
+    # cargo metadata will fail if there's no Cargo.toml, so we don't need to check explicitly
     local metadata
     metadata=$(cd "$working_dir" && cargo metadata --no-deps --format-version 1 2>/dev/null)
     
     if [ $? -ne 0 ]; then
-        echo "⚠️  Failed to run cargo metadata"
         return 1
     fi
     
@@ -160,30 +145,6 @@ convert_png_to_icns() {
     return 1
 }
 
-# Function to convert PNG to ICO (Windows icon format)
-convert_png_to_ico() {
-    local png_path="$1"
-    local ico_path="$2"
-    
-    if [ ! -f "$png_path" ]; then
-        return 1
-    fi
-    
-    # Check if ImageMagick convert is available
-    if command -v convert &> /dev/null; then
-        convert "$png_path" -define icon:auto-resize=256,128,96,64,48,32,16 "$ico_path"
-        return 0
-    fi
-    
-    # Check if icotool is available (Linux)
-    if command -v icotool &> /dev/null; then
-        icotool -c -o "$ico_path" "$png_path"
-        return 0
-    fi
-    
-    return 1
-}
-
 bundle_application() {
     local binary_name="$1"
     local include_files="$2"
@@ -201,37 +162,27 @@ bundle_application() {
         working_directory="."
     fi
     
-    # Auto-discover Cargo.toml if not provided (only in working directory)
-    if [ -z "$cargo_toml_path" ]; then
-        if discovered_cargo=$(cd "$working_directory" && discover_cargo_toml); then
-            cargo_toml_path="$working_directory/$discovered_cargo"
-            echo "📋 Auto-discovered Cargo.toml: $cargo_toml_path"
-        fi
-    fi
-    
-    # Extract metadata using cargo metadata if Cargo.toml is available
-    if [ -n "$cargo_toml_path" ] && [ -f "$cargo_toml_path" ]; then
-        echo "📋 Extracting metadata using cargo metadata from: $working_directory"
-        if extract_cargo_metadata "$working_directory"; then
-            echo "  Package: $CARGO_PKG_NAME"
-            echo "  Version: $CARGO_PKG_VERSION"
-            [ -n "$CARGO_PKG_DESCRIPTION" ] && echo "  Description: $CARGO_PKG_DESCRIPTION"
-            [ -n "$CARGO_PKG_AUTHORS" ] && echo "  Author: $CARGO_PKG_AUTHORS"
-            [ -n "$CARGO_TARGET_DIR" ] && echo "  Target directory: $CARGO_TARGET_DIR"
-            
-            # Auto-discover binary name from cargo metadata if not provided
-            if [ -z "$binary_name" ]; then
-                if [ -n "$CARGO_BIN_NAME" ]; then
-                    binary_name="$CARGO_BIN_NAME"
-                    echo "🔍 Auto-discovered binary name from cargo metadata: $binary_name"
-                elif [ -n "$CARGO_PKG_NAME" ]; then
-                    binary_name="$CARGO_PKG_NAME"
-                    echo "🔍 Using package name as binary name: $binary_name"
-                fi
+    # Extract metadata using cargo metadata
+    echo "📋 Extracting metadata using cargo metadata from: $working_directory"
+    if extract_cargo_metadata "$working_directory"; then
+        echo "  Package: $CARGO_PKG_NAME"
+        echo "  Version: $CARGO_PKG_VERSION"
+        [ -n "$CARGO_PKG_DESCRIPTION" ] && echo "  Description: $CARGO_PKG_DESCRIPTION"
+        [ -n "$CARGO_PKG_AUTHORS" ] && echo "  Author: $CARGO_PKG_AUTHORS"
+        [ -n "$CARGO_TARGET_DIR" ] && echo "  Target directory: $CARGO_TARGET_DIR"
+        
+        # Auto-discover binary name from cargo metadata if not provided
+        if [ -z "$binary_name" ]; then
+            if [ -n "$CARGO_BIN_NAME" ]; then
+                binary_name="$CARGO_BIN_NAME"
+                echo "🔍 Auto-discovered binary name from cargo metadata: $binary_name"
+            elif [ -n "$CARGO_PKG_NAME" ]; then
+                binary_name="$CARGO_PKG_NAME"
+                echo "🔍 Using package name as binary name: $binary_name"
             fi
-        else
-            echo "⚠️  Failed to extract metadata with cargo metadata, continuing without metadata"
         fi
+    else
+        echo "⚠️  Failed to extract metadata with cargo metadata, continuing without metadata"
     fi
     
     # Check if binary name is still empty
@@ -359,8 +310,8 @@ bundle_linux() {
         cp "$icon_path" "$temp_dir/${binary_name}.png"
     fi
     
-    # Generate .desktop file if we have metadata
-    if [ -n "$cargo_toml_path" ] && [ -f "$cargo_toml_path" ]; then
+    # Generate .desktop file if we have metadata from cargo
+    if [ -n "$CARGO_PKG_NAME" ]; then
         echo "  📄 Generating .desktop file"
         local app_name="${CARGO_PKG_NAME:-$binary_name}"
         local version="${CARGO_PKG_VERSION:-1.0.0}"
@@ -422,19 +373,6 @@ bundle_windows() {
     
     # Copy binary
     cp "$binary_path" "$temp_dir/${binary_name}.exe"
-    
-    # Convert and copy icon if provided
-    if [ -n "$icon_path" ] && [ -f "$icon_path" ]; then
-        echo "  🎨 Converting icon to ICO format"
-        local ico_path="$temp_dir/${binary_name}.ico"
-        if convert_png_to_ico "$icon_path" "$ico_path"; then
-            echo "  ✅ Icon converted successfully"
-        else
-            echo "  ⚠️  Icon conversion not available (ImageMagick or icotool required)"
-            echo "  📄 Including original PNG icon"
-            cp "$icon_path" "$temp_dir/${binary_name}.png"
-        fi
-    fi
     
     # Copy additional files (relative to working_directory)
     if [ -n "$include_files" ]; then
@@ -499,16 +437,18 @@ bundle_macos() {
         bundle_id="com.example.${binary_name}"
     fi
     
-    # Use metadata from Cargo.toml if available
+    # Use metadata from cargo metadata if available
     local version="1.0.0"
     local description=""
-    if [ -n "$cargo_toml_path" ] && [ -f "$cargo_toml_path" ]; then
-        version="${CARGO_PKG_VERSION:-1.0.0}"
-        description="${CARGO_PKG_DESCRIPTION:-}"
-        # Override app_name with package name if not explicitly set
-        if [ "$app_name" = "$binary_name" ] && [ -n "$CARGO_PKG_NAME" ]; then
-            app_name="$CARGO_PKG_NAME"
-        fi
+    if [ -n "$CARGO_PKG_VERSION" ]; then
+        version="$CARGO_PKG_VERSION"
+    fi
+    if [ -n "$CARGO_PKG_DESCRIPTION" ]; then
+        description="$CARGO_PKG_DESCRIPTION"
+    fi
+    # Override app_name with package name if not explicitly set
+    if [ "$app_name" = "$binary_name" ] && [ -n "$CARGO_PKG_NAME" ]; then
+        app_name="$CARGO_PKG_NAME"
     fi
     
     local bundle_name="${output_name}-macos.app"

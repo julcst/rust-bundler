@@ -241,8 +241,7 @@ For signed macOS releases, add certificate import before bundling:
 ### Windows (ZIP)
 ```
 myapp-windows.zip
-├── myapp.exe                       # Binary (with embedded metadata if build.rs used)
-├── myapp.ico                       # Converted icon (if icon-path provided)
+├── myapp.exe                       # Binary (with embedded metadata/icon if build.rs used)
 ├── README.md                       # Additional files (if included)
 └── LICENSE
 ```
@@ -252,7 +251,7 @@ myapp-windows.zip
 myapp-linux.tar.gz
 ├── myapp
 ├── myapp.png                       # Icon (if icon-path provided)
-├── myapp.desktop                   # Desktop entry (if Cargo.toml available)
+├── myapp.desktop                   # Desktop entry (if cargo metadata available)
 ├── README.md                       # Additional files (if included)
 └── LICENSE
 ```

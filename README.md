@@ -74,6 +74,32 @@ You can also specify everything explicitly:
     cargo-toml-path: 'Cargo.toml'
 ```
 
+### Custom Profile and Target
+
+Build and bundle with a custom profile or target triple:
+
+```yaml
+- name: Build with custom profile
+  run: cargo build --profile production
+  
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    profile: production
+```
+
+Or with a specific target triple for cross-compilation:
+
+```yaml
+- name: Build for specific target
+  run: cargo build --release --target aarch64-unknown-linux-gnu
+  
+- name: Bundle Application
+  uses: julcst/rust-bundler@v1
+  with:
+    target: aarch64-unknown-linux-gnu
+```
+
 The action automatically detects the platform and creates the appropriate bundle in the `dist/` directory with embedded metadata and icons.
 
 ## Usage

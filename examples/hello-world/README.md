@@ -11,10 +11,12 @@ The application reads a text file from the `assets/` directory and prints its co
 ```
 hello-world/
 ├── Cargo.toml          # Rust project configuration
+├── build.rs            # Build script (example for Windows resource embedding)
 ├── src/
 │   └── main.rs         # Application source code
 ├── assets/
 │   └── hello.txt       # Text file containing "Hello World"
+├── icon.png            # Application icon
 └── README.md           # This file
 ```
 
@@ -31,6 +33,27 @@ After building, you can run the application:
 ```bash
 ./target/release/hello-world
 ```
+
+## Windows Resource Embedding
+
+The `build.rs` file embeds icons and metadata into Windows executables at build time using the `winres` crate.
+
+The project includes `winres = "0.1"` in `[build-dependencies]`, which automatically reads metadata from `Cargo.toml` (name, version, description, authors) and embeds it into the Windows executable.
+
+To add an icon:
+1. Convert the PNG icon to ICO format:
+   ```bash
+   convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
+   ```
+
+2. Rebuild the project - the `build.rs` will automatically detect and use `icon.ico` if it exists
+
+## Metadata
+
+The bundler automatically extracts and uses the following fields from `Cargo.toml`:
+- `readme` - Automatically includes README.md in the bundle
+- `license-file` - Automatically includes LICENSE in the bundle
+- Package metadata (name, version, description, authors) for platform-specific metadata files
 
 ## Bundling
 

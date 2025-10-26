@@ -80,13 +80,15 @@ Build and bundle with a custom profile or target triple:
 
 ```yaml
 - name: Build with custom profile
-  run: cargo build --profile production
+  run: cargo build --profile production  # Requires [profile.production] in Cargo.toml
   
 - name: Bundle Application
   uses: julcst/rust-bundler@v1
   with:
     profile: production
 ```
+
+**Note:** The bundler supports Cargo's historical profile naming where `dev` and `test` profiles use the `debug` directory, and `release` and `bench` profiles use the `release` directory. Custom profiles use their own directory name.
 
 Or with a specific target triple for cross-compilation:
 

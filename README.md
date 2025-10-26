@@ -48,7 +48,7 @@ Point to your project root and let auto-discovery do the rest:
     include-files: 'assets/ README.md LICENSE'
 ```
 
-The binary will be auto-discovered in `target/release` or `target/debug`.
+The binary will be auto-discovered using `cargo metadata` to determine the target directory and profile.
 
 ### With Only Binary Name
 
@@ -180,7 +180,7 @@ jobs:
           icon-path: 'icon.png'
           cargo-toml-path: 'Cargo.toml'
           include-files: 'README.md LICENSE'
-          working-directory: './target/${{ matrix.target }}/release'
+          target: ${{ matrix.target }}
           
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
@@ -219,9 +219,11 @@ For signed macOS releases, add certificate import before bundling:
 | `binary-name` | Name of the binary to bundle (without extension). Auto-discovered from Cargo.toml if not provided. | No | Auto-discovered |
 | `include-files` | Space-separated list of files or folders to include | No | `""` |
 | `output-name` | Name of the output bundle (without extension) | No | Same as `binary-name` |
-| `working-directory` | Working directory (project root). Binary auto-discovered in target/release or target/debug. | No | `.` |
+| `working-directory` | Working directory (project root). Binary auto-discovered using cargo metadata. | No | `.` |
 | `icon-path` | Path to icon file (PNG format, will be converted per platform). Auto-discovered if not provided. | No | Auto-discovered |
 | `cargo-toml-path` | Path to Cargo.toml for extracting metadata. Auto-discovered if not provided. | No | Auto-discovered |
+| `profile` | Build profile to use (e.g., release, debug, dev, or custom profile name). Supports historical naming: dev/test map to debug, release/bench map to release. | No | `release` |
+| `target` | Target triple for cross-compilation (e.g., x86_64-unknown-linux-gnu). Optional. | No | `""` |
 | `macos-sign` | Enable macOS code signing | No | `false` |
 | `macos-sign-identity` | macOS code signing identity | No | `""` |
 | `macos-bundle-id` | macOS bundle identifier | No | `com.example.{binary-name}` |
@@ -286,9 +288,13 @@ The action automatically discovers common files when available:
 - `../icon.png`
 - `../assets/icon.png`
 
-**Binary location**: Automatically determined from `cargo metadata` output:
+**Binary location**: Automatically determined from `cargo metadata` output and build parameters:
 - Uses the `target_directory` field from cargo metadata
-- Searches in `target/release` and `target/debug` subdirectories
+- Uses the `profile` input (defaults to `release`) to determine the profile directory
+  - Historical profile names are handled: `dev` and `test` map to `debug` directory, `release` and `bench` map to `release` directory
+  - Custom profiles use their own directory name
+- Optionally uses the `target` input for cross-compilation (e.g., `x86_64-unknown-linux-gnu`)
+- Search path pattern: `{target_directory}/{target}/{profile_directory}/` (or `{target_directory}/{profile_directory}/` when no target specified)
 - Falls back to manual search if cargo metadata is unavailable
 
 **Binary name**: Automatically extracted from the binary target in `Cargo.toml` using `cargo metadata`.

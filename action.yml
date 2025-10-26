@@ -46,6 +46,14 @@ inputs:
     description: 'Path to Cargo.toml for extracting metadata (name, version, description, authors)'
     required: false
     default: ''
+  profile:
+    description: 'Build profile to use (e.g., release, debug, dev, or custom profile name). Defaults to release.'
+    required: false
+    default: 'release'
+  target:
+    description: 'Target triple for cross-compilation (e.g., x86_64-unknown-linux-gnu). Optional.'
+    required: false
+    default: ''
 
 outputs:
   bundle-path:
@@ -78,4 +86,6 @@ runs:
           "${{ inputs.macos-bundle-id }}" \
           "${{ inputs.macos-app-name }}" \
           "${{ inputs.icon-path }}" \
-          "${{ inputs.cargo-toml-path }}"
+          "${{ inputs.cargo-toml-path }}" \
+          "${{ inputs.profile }}" \
+          "${{ inputs.target }}"

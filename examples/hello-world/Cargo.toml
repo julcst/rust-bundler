@@ -4,5 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "A simple hello world application demonstrating rust-bundler"
 authors = ["rust-bundler"]
+readme = "README.md"
+license-file = "LICENSE"
 
 [dependencies]
+
+[build-dependencies]
+winres = "0.1"
+
+

@@ -34,26 +34,26 @@ After building, you can run the application:
 ./target/release/hello-world
 ```
 
-## Windows Resource Embedding (Optional)
+## Windows Resource Embedding
 
-The `build.rs` file demonstrates how to embed icons and metadata into Windows executables at build time. To enable this:
+The `build.rs` file embeds icons and metadata into Windows executables at build time using the `winres` crate.
 
+The project includes `winres = "0.1"` in `[build-dependencies]`, which automatically reads metadata from `Cargo.toml` (name, version, description, authors) and embeds it into the Windows executable.
+
+To add an icon:
 1. Convert the PNG icon to ICO format:
    ```bash
    convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
    ```
 
-2. Add winres to `Cargo.toml`:
-   ```toml
-   [build-dependencies]
-   winres = "0.1"
-   ```
+2. Rebuild the project - the `build.rs` will automatically detect and use `icon.ico` if it exists
 
-3. Uncomment the winres code in `build.rs`
+## Metadata
 
-4. Rebuild the project
-
-The winres crate automatically reads metadata from `Cargo.toml` (name, version, description, authors) and embeds it into the Windows executable.
+The bundler automatically extracts and uses the following fields from `Cargo.toml`:
+- `readme` - Automatically includes README.md in the bundle
+- `license-file` - Automatically includes LICENSE in the bundle
+- Package metadata (name, version, description, authors) for platform-specific metadata files
 
 ## Bundling
 

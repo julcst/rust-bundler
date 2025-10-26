@@ -3,20 +3,20 @@ fn main() {
     #[cfg(target_os = "windows")]
     {
         // Use winres to embed icon and version information on Windows
-        // This requires adding winres to build-dependencies in Cargo.toml
+        let mut res = winres::WindowsResource::new();
         
-        // Uncomment the following lines to enable Windows resource embedding:
-        // let mut res = winres::WindowsResource::new();
-        // res.set_icon("icon.ico");
-        // res.compile().unwrap();
-        
-        // Note: You'll need to convert icon.png to icon.ico first:
+        // Set icon if icon.ico exists
+        // Note: Convert icon.png to icon.ico first:
         // convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
+        if std::path::Path::new("icon.ico").exists() {
+            res.set_icon("icon.ico");
+        }
         
-        println!("cargo:warning=Windows resource embedding is disabled by default.");
-        println!("cargo:warning=To enable it:");
-        println!("cargo:warning=1. Add 'winres = \"0.1\"' to [build-dependencies] in Cargo.toml");
-        println!("cargo:warning=2. Convert icon.png to icon.ico");
-        println!("cargo:warning=3. Uncomment the winres code in build.rs");
+        // Compile the resource file
+        // winres automatically reads metadata from Cargo.toml
+        if let Err(e) = res.compile() {
+            println!("cargo:warning=Failed to compile Windows resources: {}", e);
+        }
     }
 }
+

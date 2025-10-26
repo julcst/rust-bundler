@@ -383,13 +383,23 @@ All macOS `.app` bundles are automatically signed with an ad-hoc signature (usin
 
 ## Requirements
 
+**Runtime dependencies:**
+- `cargo` - Required for extracting metadata via `cargo metadata`
+- `jq` - Required for parsing JSON output from cargo metadata
 - The binary must be built before running this action (e.g., with `cargo build --release`)
+
+**Platform-specific:**
 - For macOS code signing, proper certificates must be imported into the keychain first
 - For Windows ZIP creation on non-Windows runners, the `zip` utility must be available
 - For optimal icon conversion:
   - **macOS**: `sips` and `iconutil` (included with macOS, falls back to PNG if unavailable)
-  - **Windows**: ImageMagick or `icotool` (optional, falls back to PNG if unavailable)
   - **Linux**: No conversion needed (uses PNG directly)
+
+**Metadata extraction:**
+The bundler automatically includes files from your `Cargo.toml` metadata:
+- `readme` field - Automatically includes README file in bundles
+- `license-file` field - Automatically includes LICENSE file in bundles
+- Package metadata (name, version, description, authors) - Used for platform-specific metadata files
 
 ## Troubleshooting
 

@@ -99,6 +99,16 @@ extract_cargo_metadata() {
     CARGO_PKG_DESCRIPTION=$(echo "$package" | jq -r '.description // ""')
     CARGO_PKG_AUTHORS=$(echo "$package" | jq -r '.authors[0] // ""')
     CARGO_TARGET_DIR=$(echo "$metadata" | jq -r '.target_directory')
+    CARGO_PKG_README=$(echo "$package" | jq -r '.readme // ""')
+    CARGO_PKG_LICENSE_FILE=$(echo "$package" | jq -r '.license_file // ""')
+    
+    # Extract include field from manifest
+    local manifest_path
+    manifest_path=$(echo "$package" | jq -r '.manifest_path')
+    if [ -f "$manifest_path" ]; then
+        # Extract include field array from Cargo.toml using cargo metadata
+        CARGO_PKG_INCLUDE=$(echo "$package" | jq -r '.include // [] | join(" ")')
+    fi
     
     # Extract binary target information
     local bin_target
@@ -107,7 +117,7 @@ extract_cargo_metadata() {
         CARGO_BIN_NAME="$bin_target"
     fi
     
-    export CARGO_PKG_NAME CARGO_PKG_VERSION CARGO_PKG_DESCRIPTION CARGO_PKG_AUTHORS CARGO_TARGET_DIR CARGO_BIN_NAME
+    export CARGO_PKG_NAME CARGO_PKG_VERSION CARGO_PKG_DESCRIPTION CARGO_PKG_AUTHORS CARGO_TARGET_DIR CARGO_BIN_NAME CARGO_PKG_README CARGO_PKG_LICENSE_FILE CARGO_PKG_INCLUDE
 }
 
 # Function to convert PNG to ICNS (macOS icon format)
@@ -143,6 +153,40 @@ convert_png_to_icns() {
     fi
     
     return 1
+}
+
+# Function to get all files to include in the bundle
+get_files_to_include() {
+    local working_directory="$1"
+    local include_files_param="$2"
+    local all_files=""
+    
+    # Add files from cargo metadata include field
+    if [ -n "$CARGO_PKG_INCLUDE" ]; then
+        all_files="$CARGO_PKG_INCLUDE"
+    fi
+    
+    # Add README from cargo metadata
+    if [ -n "$CARGO_PKG_README" ] && [ "$CARGO_PKG_README" != "false" ]; then
+        if [ -f "$working_directory/$CARGO_PKG_README" ]; then
+            all_files="$all_files $CARGO_PKG_README"
+        fi
+    fi
+    
+    # Add LICENSE from cargo metadata
+    if [ -n "$CARGO_PKG_LICENSE_FILE" ] && [ "$CARGO_PKG_LICENSE_FILE" != "false" ]; then
+        if [ -f "$working_directory/$CARGO_PKG_LICENSE_FILE" ]; then
+            all_files="$all_files $CARGO_PKG_LICENSE_FILE"
+        fi
+    fi
+    
+    # Add files from include-files parameter (if not already in the list)
+    if [ -n "$include_files_param" ]; then
+        all_files="$all_files $include_files_param"
+    fi
+    
+    # Remove duplicates and return
+    echo "$all_files" | tr ' ' '\n' | sort -u | tr '\n' ' '
 }
 
 bundle_application() {
@@ -261,23 +305,27 @@ bundle_application() {
     
     echo "✅ Binary found at: $binary_path"
     
+    # Get all files to include (from cargo metadata and include-files parameter)
+    local all_include_files
+    all_include_files=$(get_files_to_include "$working_directory" "$include_files")
+    
     # Create output directory
     mkdir -p dist
     
     # Bundle based on OS
     case "$OS" in
         Linux)
-            bundle_linux "$binary_name" "$binary_path" "$include_files" "$output_name" "$icon_path" "$cargo_toml_path" "$working_directory"
+            bundle_linux "$binary_name" "$binary_path" "$all_include_files" "$output_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             ;;
         Darwin)
             if [ "$macos_sign" = "true" ]; then
-                bundle_macos_with_signing "$binary_name" "$binary_path" "$include_files" "$output_name" "$macos_sign_identity" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
+                bundle_macos_with_signing "$binary_name" "$binary_path" "$all_include_files" "$output_name" "$macos_sign_identity" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             else
-                bundle_macos "$binary_name" "$binary_path" "$include_files" "$output_name" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
+                bundle_macos "$binary_name" "$binary_path" "$all_include_files" "$output_name" "$macos_bundle_id" "$macos_app_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             fi
             ;;
         Windows)
-            bundle_windows "$binary_name" "$binary_path" "$include_files" "$output_name" "$icon_path" "$cargo_toml_path" "$working_directory"
+            bundle_windows "$binary_name" "$binary_path" "$all_include_files" "$output_name" "$icon_path" "$cargo_toml_path" "$working_directory"
             ;;
         *)
             echo "❌ Unsupported OS: $OS"

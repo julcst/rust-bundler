@@ -88,6 +88,11 @@ on:
     tags:
       - 'v*'
 
+env:
+  CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: true
+  RUSTC_WRAPPER: sccache
+
 jobs:
   build:
     strategy:
@@ -96,7 +101,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -107,13 +112,6 @@ jobs:
       
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
-      
-      - name: Configure sccache
-        continue-on-error: true
-        run: |
-          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
-        shell: bash
           
       - name: Build
         run: cargo build --release
@@ -156,7 +154,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

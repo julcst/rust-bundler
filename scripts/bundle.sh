@@ -128,10 +128,20 @@ extract_cargo_metadata() {
     fi
     
     # Extract binary target information
-    local bin_target
-    bin_target=$(echo "$package" | jq -r '.targets[] | select(.kind[] == "bin") | .name' | head -1)
-    if [ -n "$bin_target" ]; then
-        CARGO_BIN_NAME="$bin_target"
+    # Prefer binary target with same name as package, otherwise use first binary target
+    local bin_targets
+    bin_targets=$(echo "$package" | jq -r '.targets[] | select(.kind[] == "bin") | .name')
+    if [ -n "$bin_targets" ]; then
+        # Try to find binary matching package name
+        local bin_target
+        bin_target=$(echo "$bin_targets" | grep -x "$CARGO_PKG_NAME" | head -1)
+        if [ -z "$bin_target" ]; then
+            # Fallback to first binary target if no match with package name
+            bin_target=$(echo "$bin_targets" | head -1)
+        fi
+        if [ -n "$bin_target" ]; then
+            CARGO_BIN_NAME="$bin_target"
+        fi
     fi
     
     export CARGO_PKG_NAME CARGO_PKG_VERSION CARGO_PKG_DESCRIPTION CARGO_PKG_AUTHORS CARGO_TARGET_DIR CARGO_BIN_NAME CARGO_PKG_README CARGO_PKG_LICENSE_FILE CARGO_PKG_INCLUDE

@@ -343,7 +343,10 @@ On Windows, metadata and icons should be embedded at build time using a build sc
            let ico_path = Path::new("icon.ico");
 
            if png_path.exists() && !ico_path.exists() {
-               if let Err(e) = ico_builder::build_ico_from_png(png_path, ico_path) {
+               if let Err(e) = ico_builder::IcoBuilder::default()
+                   .add_source_file(png_path)
+                   .build_file(ico_path)
+               {
                    println!("cargo:warning=Failed to generate icon.ico: {}", e);
                }
            }

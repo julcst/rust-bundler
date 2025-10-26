@@ -25,7 +25,10 @@ fn main() {
             };
 
             if should_generate {
-                match ico_builder::build_ico_from_png(png_path, ico_path) {
+                match ico_builder::IcoBuilder::default()
+                    .add_source_file(png_path)
+                    .build_file(ico_path)
+                {
                     Ok(_) => println!("cargo:warning=Generated icon.ico from icon.png"),
                     Err(e) => println!("cargo:warning=Failed to generate icon.ico: {}", e),
                 }

@@ -346,7 +346,8 @@ bundle_application() {
     
     if [ ! -f "$binary_path" ]; then
         echo "❌ Binary not found at: $binary_path"
-        echo "   Searched in common build directories (target/release, target/debug)"
+        echo "   Expected location: $binary_dir"
+        echo "   Make sure to build your binary before bundling (e.g., cargo build --release)"
         exit 1
     fi
     
